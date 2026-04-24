@@ -17,6 +17,18 @@ test("Add User button is visible", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add User" })).toBeVisible()
 })
 
+test("Bilibili access tab is visible", async ({ page }) => {
+  await page.goto("/admin")
+  await page.getByRole("tab", { name: "Bilibili Access" }).click()
+
+  await expect(
+    page.getByRole("heading", { name: "Access Status" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Manage Cookie Header" }),
+  ).toBeVisible()
+})
+
 test.describe("Admin user management", () => {
   test("Create a new user successfully", async ({ page }) => {
     await page.goto("/admin")

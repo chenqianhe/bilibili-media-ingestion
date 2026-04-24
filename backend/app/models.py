@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from pydantic import EmailStr
 from sqlalchemy import DateTime
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 
 def get_datetime_utc() -> datetime:
@@ -53,7 +53,19 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+
+
+class AppSecret(SQLModel, table=True):
+    __tablename__ = "app_secrets"
+
+    key: str = Field(primary_key=True, max_length=128)
+    encrypted_value: str
+    updated_by: str | None = Field(default=None, max_length=255, index=True)
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        index=True,
+    )
 
 
 # Properties to return via API, id is always required
@@ -64,47 +76,6 @@ class UserPublic(UserBase):
 
 class UsersPublic(SQLModel):
     data: list[UserPublic]
-    count: int
-
-
-# Shared properties
-class ItemBase(SQLModel):
-    title: str = Field(min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=255)
-
-
-# Properties to receive on item creation
-class ItemCreate(ItemBase):
-    pass
-
-
-# Properties to receive on item update
-class ItemUpdate(ItemBase):
-    title: str | None = Field(default=None, min_length=1, max_length=255)  # type: ignore[assignment]
-
-
-# Database model, database table inferred from class name
-class Item(ItemBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime | None = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
-    )
-    owner_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
-    )
-    owner: User | None = Relationship(back_populates="items")
-
-
-# Properties to return via API, id is always required
-class ItemPublic(ItemBase):
-    id: uuid.UUID
-    owner_id: uuid.UUID
-    created_at: datetime | None = None
-
-
-class ItemsPublic(SQLModel):
-    data: list[ItemPublic]
     count: int
 
 
@@ -127,3 +98,28 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class BilibiliAccessUpdate(SQLModel):
+    netscape_cookies: str = Field(min_length=1, max_length=262144)
+    download_user_agent: str | None = Field(default=None, max_length=2048)
+
+
+class BilibiliAccessStatusPublic(SQLModel):
+    metadata_cookie_configured: bool
+    download_auth_configured: bool
+    has_database_override: bool
+    effective_cookie_source: str
+    cookie_header_summary: str | None = None
+    netscape_cookie_summary: str | None = None
+    download_user_agent_summary: str | None = None
+    download_user_agent_configured: bool = False
+    yt_dlp_cookies_file_configured: bool
+    yt_dlp_cookies_from_browser_configured: bool
+    yt_dlp_impersonate_configured: bool = False
+    database_cookie_updated_by: str | None = None
+    database_cookie_updated_at: datetime | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+import app.ingest_models  # noqa: F401,E402

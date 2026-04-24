@@ -3,44 +3,20 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { IngestCreateIngestJobData, IngestCreateIngestJobResponse, IngestReadIngestJobsData, IngestReadIngestJobsResponse, IngestReadIngestJobData, IngestReadIngestJobResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, MediaReadMediaAssetData, MediaReadMediaAssetResponse, MediaCreateMediaSignedUrlData, MediaCreateMediaSignedUrlResponse, MediaCreateMediaPlaybackUrlResponseData, MediaCreateMediaPlaybackUrlResponseResponse, MediaReadMediaDownloadDescriptorData, MediaReadMediaDownloadDescriptorResponse, MediaProxyMediaAssetData, MediaProxyMediaAssetResponse, PrivateCreateUserData, PrivateCreateUserResponse, SystemReadBilibiliAccessStatusResponse, SystemUpdateBilibiliAccessStatusData, SystemUpdateBilibiliAccessStatusResponse, SystemClearBilibiliAccessStatusResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, VideosReadVideosData, VideosReadVideosResponse, VideosReadVideoData, VideosReadVideoResponse, VideosDeleteVideoData, VideosDeleteVideoResponse, VideosReadVideoAssetsData, VideosReadVideoAssetsResponse, VideosReadVideoCommentsData, VideosReadVideoCommentsResponse, VideosReadVideoCommentImagesData, VideosReadVideoCommentImagesResponse, VideosReadVideoDanmakuData, VideosReadVideoDanmakuResponse, VideosReadVideoSubtitlesData, VideosReadVideoSubtitlesResponse } from './types.gen';
 
-export class ItemsService {
+export class IngestService {
     /**
-     * Read Items
-     * Retrieve items.
-     * @param data The data for the request.
-     * @param data.skip
-     * @param data.limit
-     * @returns ItemsPublic Successful Response
-     * @throws ApiError
-     */
-    public static readItems(data: ItemsReadItemsData = {}): CancelablePromise<ItemsReadItemsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/items/',
-            query: {
-                skip: data.skip,
-                limit: data.limit
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Create Item
-     * Create new item.
+     * Create Ingest Job
      * @param data The data for the request.
      * @param data.requestBody
-     * @returns ItemPublic Successful Response
+     * @returns IngestJobPublic Successful Response
      * @throws ApiError
      */
-    public static createItem(data: ItemsCreateItemData): CancelablePromise<ItemsCreateItemResponse> {
+    public static createIngestJob(data: IngestCreateIngestJobData): CancelablePromise<IngestCreateIngestJobResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/items/',
+            url: '/api/v1/ingest/videos',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -50,19 +26,26 @@ export class ItemsService {
     }
     
     /**
-     * Read Item
-     * Get item by ID.
+     * Read Ingest Jobs
      * @param data The data for the request.
-     * @param data.id
-     * @returns ItemPublic Successful Response
+     * @param data.status
+     * @param data.bvid
+     * @param data.requestedBy
+     * @param data.limit
+     * @param data.offset
+     * @returns IngestJobsPublic Successful Response
      * @throws ApiError
      */
-    public static readItem(data: ItemsReadItemData): CancelablePromise<ItemsReadItemResponse> {
+    public static readIngestJobs(data: IngestReadIngestJobsData = {}): CancelablePromise<IngestReadIngestJobsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/items/{id}',
-            path: {
-                id: data.id
+            url: '/api/v1/ingest/jobs',
+            query: {
+                status: data.status,
+                bvid: data.bvid,
+                requested_by: data.requestedBy,
+                limit: data.limit,
+                offset: data.offset
             },
             errors: {
                 422: 'Validation Error'
@@ -71,43 +54,18 @@ export class ItemsService {
     }
     
     /**
-     * Update Item
-     * Update an item.
+     * Read Ingest Job
      * @param data The data for the request.
-     * @param data.id
-     * @param data.requestBody
-     * @returns ItemPublic Successful Response
+     * @param data.jobId
+     * @returns IngestJobDetail Successful Response
      * @throws ApiError
      */
-    public static updateItem(data: ItemsUpdateItemData): CancelablePromise<ItemsUpdateItemResponse> {
+    public static readIngestJob(data: IngestReadIngestJobData): CancelablePromise<IngestReadIngestJobResponse> {
         return __request(OpenAPI, {
-            method: 'PUT',
-            url: '/api/v1/items/{id}',
+            method: 'GET',
+            url: '/api/v1/ingest/jobs/{job_id}',
             path: {
-                id: data.id
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Delete Item
-     * Delete an item.
-     * @param data The data for the request.
-     * @param data.id
-     * @returns Message Successful Response
-     * @throws ApiError
-     */
-    public static deleteItem(data: ItemsDeleteItemData): CancelablePromise<ItemsDeleteItemResponse> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/api/v1/items/{id}',
-            path: {
-                id: data.id
+                job_id: data.jobId
             },
             errors: {
                 422: 'Validation Error'
@@ -213,6 +171,122 @@ export class LoginService {
     }
 }
 
+export class MediaService {
+    /**
+     * Read Media Asset
+     * @param data The data for the request.
+     * @param data.assetId
+     * @returns MediaAssetDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static readMediaAsset(data: MediaReadMediaAssetData): CancelablePromise<MediaReadMediaAssetResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/media/assets/{asset_id}',
+            path: {
+                asset_id: data.assetId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Media Signed Url
+     * @param data The data for the request.
+     * @param data.assetId
+     * @param data.requestBody
+     * @returns SignedUrlResponse Successful Response
+     * @throws ApiError
+     */
+    public static createMediaSignedUrl(data: MediaCreateMediaSignedUrlData): CancelablePromise<MediaCreateMediaSignedUrlResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/media/assets/{asset_id}/signed-url',
+            path: {
+                asset_id: data.assetId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Media Playback Url Response
+     * @param data The data for the request.
+     * @param data.assetId
+     * @param data.requestBody
+     * @returns SignedUrlResponse Successful Response
+     * @throws ApiError
+     */
+    public static createMediaPlaybackUrlResponse(data: MediaCreateMediaPlaybackUrlResponseData): CancelablePromise<MediaCreateMediaPlaybackUrlResponseResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/media/assets/{asset_id}/playback-url',
+            path: {
+                asset_id: data.assetId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Media Download Descriptor
+     * @param data The data for the request.
+     * @param data.assetId
+     * @param data.token
+     * @returns MediaAssetDownloadDescriptor Successful Response
+     * @throws ApiError
+     */
+    public static readMediaDownloadDescriptor(data: MediaReadMediaDownloadDescriptorData): CancelablePromise<MediaReadMediaDownloadDescriptorResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/media/assets/{asset_id}/download',
+            path: {
+                asset_id: data.assetId
+            },
+            query: {
+                token: data.token
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Proxy Media Asset
+     * @param data The data for the request.
+     * @param data.assetId
+     * @param data.token
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static proxyMediaAsset(data: MediaProxyMediaAssetData): CancelablePromise<MediaProxyMediaAssetResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/media/assets/{asset_id}/playback',
+            path: {
+                asset_id: data.assetId
+            },
+            query: {
+                token: data.token
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class PrivateService {
     /**
      * Create User
@@ -231,6 +305,51 @@ export class PrivateService {
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+}
+
+export class SystemService {
+    /**
+     * Read Bilibili Access Status
+     * @returns BilibiliAccessStatusPublic Successful Response
+     * @throws ApiError
+     */
+    public static readBilibiliAccessStatus(): CancelablePromise<SystemReadBilibiliAccessStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/system/bilibili-access'
+        });
+    }
+    
+    /**
+     * Update Bilibili Access Status
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns BilibiliAccessStatusPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateBilibiliAccessStatus(data: SystemUpdateBilibiliAccessStatusData): CancelablePromise<SystemUpdateBilibiliAccessStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/system/bilibili-access',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Clear Bilibili Access Status
+     * @returns BilibiliAccessStatusPublic Successful Response
+     * @throws ApiError
+     */
+    public static clearBilibiliAccessStatus(): CancelablePromise<SystemClearBilibiliAccessStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/system/bilibili-access'
         });
     }
 }
@@ -463,6 +582,222 @@ export class UtilsService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/utils/health-check/'
+        });
+    }
+}
+
+export class VideosService {
+    /**
+     * Read Videos
+     * @param data The data for the request.
+     * @param data.q
+     * @param data.limit
+     * @param data.offset
+     * @returns VideosPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideos(data: VideosReadVideosData = {}): CancelablePromise<VideosReadVideosResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/',
+            query: {
+                q: data.q,
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video
+     * @param data The data for the request.
+     * @param data.bvid
+     * @returns VideoDetailPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideo(data: VideosReadVideoData): CancelablePromise<VideosReadVideoResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}',
+            path: {
+                bvid: data.bvid
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Video
+     * @param data The data for the request.
+     * @param data.bvid
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteVideo(data: VideosDeleteVideoData): CancelablePromise<VideosDeleteVideoResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/videos/{bvid}',
+            path: {
+                bvid: data.bvid
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video Assets
+     * @param data The data for the request.
+     * @param data.bvid
+     * @param data.assetType
+     * @returns VideoAssetsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideoAssets(data: VideosReadVideoAssetsData): CancelablePromise<VideosReadVideoAssetsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}/assets',
+            path: {
+                bvid: data.bvid
+            },
+            query: {
+                asset_type: data.assetType
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video Comments
+     * @param data The data for the request.
+     * @param data.bvid
+     * @param data.root
+     * @param data.parent
+     * @param data.limit
+     * @param data.offset
+     * @returns VideoCommentsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideoComments(data: VideosReadVideoCommentsData): CancelablePromise<VideosReadVideoCommentsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}/comments',
+            path: {
+                bvid: data.bvid
+            },
+            query: {
+                root: data.root,
+                parent: data.parent,
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video Comment Images
+     * @param data The data for the request.
+     * @param data.bvid
+     * @param data.rpid
+     * @param data.root
+     * @param data.parent
+     * @param data.storageStatus
+     * @param data.limit
+     * @param data.offset
+     * @returns VideoCommentImagesPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideoCommentImages(data: VideosReadVideoCommentImagesData): CancelablePromise<VideosReadVideoCommentImagesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}/comment-images',
+            path: {
+                bvid: data.bvid
+            },
+            query: {
+                rpid: data.rpid,
+                root: data.root,
+                parent: data.parent,
+                storage_status: data.storageStatus,
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video Danmaku
+     * @param data The data for the request.
+     * @param data.bvid
+     * @param data.cid
+     * @param data.source
+     * @param data.historyDate
+     * @param data.limit
+     * @param data.offset
+     * @returns VideoDanmakuEntriesPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideoDanmaku(data: VideosReadVideoDanmakuData): CancelablePromise<VideosReadVideoDanmakuResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}/danmaku',
+            path: {
+                bvid: data.bvid
+            },
+            query: {
+                cid: data.cid,
+                source: data.source,
+                history_date: data.historyDate,
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Video Subtitles
+     * @param data The data for the request.
+     * @param data.bvid
+     * @param data.cid
+     * @param data.lang
+     * @param data.limit
+     * @param data.offset
+     * @returns VideoSubtitlesPublic Successful Response
+     * @throws ApiError
+     */
+    public static readVideoSubtitles(data: VideosReadVideoSubtitlesData): CancelablePromise<VideosReadVideoSubtitlesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/videos/{bvid}/subtitles',
+            path: {
+                bvid: data.bvid
+            },
+            query: {
+                cid: data.cid,
+                lang: data.lang,
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
 }

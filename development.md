@@ -66,6 +66,12 @@ And then start the local frontend development server:
 bun run dev
 ```
 
+To verify the frontend production build from the repository root, run:
+
+```bash
+bun run build
+```
+
 Or you could stop the `backend` Docker Compose service:
 
 ```bash
@@ -78,6 +84,63 @@ And then you can run the local development server for the backend:
 cd backend
 fastapi dev app/main.py
 ```
+
+## Bilibili Ingestion Workflow
+
+The local compose stack already includes the backend API, MinIO, and the
+four ingestion workers:
+
+- `metadata-worker`
+- `download-worker`
+- `upload-worker`
+- `processing-worker`
+
+So the shortest end-to-end workflow is:
+
+```bash
+docker compose watch
+```
+
+If you are running host-based ingestion tests, bring up the dedicated test
+database too:
+
+```bash
+docker compose --profile test up -d test-db
+```
+
+After pulling backend schema changes, apply migrations before testing workers or
+API reads:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+The repo currently keeps a single squashed baseline migration at
+`backend/app/alembic/versions/20260420_01_initialize_current_schema.py`. If
+your local DB still points at the removed older revision chain, drop and
+recreate that local DB once before rerunning `alembic upgrade head`.
+
+Useful local read endpoints after an ingest finishes:
+
+- `GET /api/v1/videos/{bvid}/assets`
+- `GET /api/v1/videos/{bvid}/assets?asset_type=comment_image`
+- `GET /api/v1/videos/{bvid}/comments`
+- `GET /api/v1/media/assets/{asset_id}`
+
+If you want to run a worker on the host instead of in Docker, stop the matching
+container first and then run one of these from `./backend`:
+
+```bash
+uv run python -m app.workers.metadata_ingest --once
+uv run python -m app.workers.download_ingest --once
+uv run python -m app.workers.upload_ingest --once
+uv run python -m app.workers.media_processing --once
+```
+
+The metadata worker is also responsible for optional Bilibili comments,
+danmaku, subtitles, and comment-image ingestion, so changes in that area usually
+need `metadata-worker` plus the API server to be restarted or re-run.
 
 ## Docker Compose in `localhost.tiangolo.com`
 

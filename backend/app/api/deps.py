@@ -12,6 +12,8 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import engine
 from app.models import TokenPayload, User
+from app.uploader.base import ObjectStorageClient, ObjectStorageConfigurationError
+from app.uploader.s3_multipart import S3MultipartObjectStorageClient
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -55,3 +57,19 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def get_object_storage_client() -> ObjectStorageClient:
+    try:
+        return S3MultipartObjectStorageClient()
+    except ObjectStorageConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+ObjectStorageClientDep = Annotated[
+    ObjectStorageClient,
+    Depends(get_object_storage_client),
+]

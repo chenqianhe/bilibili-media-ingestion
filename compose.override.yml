@@ -3,7 +3,7 @@ services:
   # Local services are available on their ports, but also available on:
   # http://api.localhost.tiangolo.com: backend
   # http://dashboard.localhost.tiangolo.com: frontend
-  # etc. To enable it, update .env, set:
+  # etc. To enable it, update .env or .env.local, set:
   # DOMAIN=localhost.tiangolo.com
   proxy:
     image: traefik:3.6
@@ -50,6 +50,40 @@ services:
     ports:
       - "5432:5432"
 
+  test-db:
+    image: postgres:18
+    restart: "no"
+    profiles:
+      - test
+    ports:
+      - "55432:5432"
+    env_file:
+      - path: .env.test
+        required: true
+      - path: .env.test.local
+        required: false
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - app-test-db-data:/var/lib/postgresql/data/pgdata
+
+  minio:
+    image: minio/minio
+    restart: "no"
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123456
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
   adminer:
     restart: "no"
     ports:
@@ -86,6 +120,141 @@ services:
       SMTP_PORT: "1025"
       SMTP_TLS: "false"
       EMAILS_FROM_EMAIL: "noreply@example.com"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://minio:9000}"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-minio}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-minio123456}"
+      S3_BUCKET: "${S3_BUCKET:-bili-media-dev}"
+      BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
+
+  metadata-worker:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -m
+      - app.workers.metadata_ingest
+      - --poll-interval
+      - "2"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    environment:
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://minio:9000}"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-minio}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-minio123456}"
+      S3_BUCKET: "${S3_BUCKET:-bili-media-dev}"
+      BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
+
+  download-worker:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -m
+      - app.workers.download_ingest
+      - --poll-interval
+      - "2"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    volumes:
+      - ./backend/.secrets:/app/backend/.secrets:ro
+    environment:
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://minio:9000}"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-minio}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-minio123456}"
+      S3_BUCKET: "${S3_BUCKET:-bili-media-dev}"
+      BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
+
+  upload-worker:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -m
+      - app.workers.upload_ingest
+      - --poll-interval
+      - "2"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    environment:
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://minio:9000}"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-minio}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-minio123456}"
+      S3_BUCKET: "${S3_BUCKET:-bili-media-dev}"
+      BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
+
+  processing-worker:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -m
+      - app.workers.media_processing
+      - --poll-interval
+      - "2"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    environment:
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://minio:9000}"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-minio}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-minio123456}"
+      S3_BUCKET: "${S3_BUCKET:-bili-media-dev}"
+      BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
 
   mailcatcher:
     image: schickling/mailcatcher
@@ -116,7 +285,10 @@ services:
       - backend
       - mailcatcher
     env_file:
-      - .env
+      - path: .env
+        required: true
+      - path: .env.local
+        required: false
     environment:
       - VITE_API_URL=http://backend:8000
       - MAILCATCHER_HOST=http://mailcatcher:1080
@@ -133,3 +305,6 @@ networks:
   traefik-public:
     # For local dev, don't expect an external Traefik network
     external: false
+
+volumes:
+  app-test-db-data:

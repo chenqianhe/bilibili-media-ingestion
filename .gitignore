@@ -1,5 +1,10 @@
 .vscode/*
 !.vscode/extensions.json
+.env.local
+.env.test.local
+frontend/.env.local
+backend/.secrets/*
+!backend/.secrets/.gitkeep
 node_modules/
 /test-results/
 /playwright-report/

@@ -1,5 +1,7 @@
+import os
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -23,10 +25,27 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+def build_env_files() -> tuple[str, ...]:
+    project_root = Path(__file__).resolve().parents[3]
+    env_files = [
+        project_root / ".env",
+        project_root / ".env.local",
+    ]
+    if os.environ.get("APP_ENV") == "test":
+        env_files.extend(
+            [
+                project_root / ".env.test",
+                project_root / ".env.test.local",
+            ]
+        )
+    return tuple(str(path) for path in env_files)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
+        # Use repository-level env files, with optional test-specific overrides
+        # enabled by setting APP_ENV=test before importing settings.
+        env_file=build_env_files(),
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -36,6 +55,61 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    BACKEND_PUBLIC_URL: str = "http://localhost:8000"
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY: str | None = None
+    S3_SECRET_KEY: str | None = None
+    S3_BUCKET: str | None = None
+    S3_REGION: str | None = None
+    BILIBILI_API_BASE_URL: str = "https://api.bilibili.com"
+    BILIBILI_METADATA_TIMEOUT_SECONDS: float = 10.0
+    BILIBILI_METADATA_RETRY_ATTEMPTS: int = 3
+    BILIBILI_METADATA_USER_AGENT: str = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/135.0.0.0 Safari/537.36"
+    )
+    BILIBILI_ACCEPT_LANGUAGE: str = "zh-CN,zh;q=0.9,en;q=0.8"
+    BILIBILI_COOKIE_HEADER: str | None = None
+    BILIBILI_REQUEST_MIN_INTERVAL_SECONDS: float = 0.8
+    BILIBILI_REQUEST_JITTER_SECONDS: float = 0.4
+    BILIBILI_WBI_KEY_CACHE_TTL_SECONDS: float = 10 * 60
+    BILIBILI_COMMENT_EMPTY_PAGE_RETRY_ATTEMPTS: int = 3
+    METADATA_WORKER_POLL_INTERVAL_SECONDS: float = 5.0
+    METADATA_WORKER_INTER_JOB_DELAY_SECONDS: float = 5 * 60
+    DOWNLOAD_WORKER_POLL_INTERVAL_SECONDS: float = 5.0
+    UPLOAD_WORKER_POLL_INTERVAL_SECONDS: float = 5.0
+    PROCESSING_WORKER_POLL_INTERVAL_SECONDS: float = 5.0
+    SUBTITLE_WORKER_POLL_INTERVAL_SECONDS: float = 5.0
+    METADATA_WORKER_STALE_AFTER_SECONDS: float = 15 * 60
+    DOWNLOAD_WORKER_STALE_AFTER_SECONDS: float = 6 * 60 * 60
+    UPLOAD_WORKER_STALE_AFTER_SECONDS: float = 4 * 60 * 60
+    PROCESSING_WORKER_STALE_AFTER_SECONDS: float = 4 * 60 * 60
+    SUBTITLE_WORKER_STALE_AFTER_SECONDS: float = 4 * 60 * 60
+    YT_DLP_BINARY: str = "yt-dlp"
+    YT_DLP_COOKIES_FILE: str | None = None
+    YT_DLP_COOKIES_FROM_BROWSER: str | None = None
+    YT_DLP_USER_AGENT: str | None = None
+    YT_DLP_IMPERSONATE: str | None = None
+    FFMPEG_BINARY: str = "ffmpeg"
+    FFPROBE_BINARY: str = "ffprobe"
+    OPENAI_API_KEY: str | None = None
+    OPENAI_API_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_TRANSCRIPTION_MODEL: str = "gpt-4o-transcribe-diarize"
+    OPENAI_TRANSCRIPTION_LANGUAGE: str | None = None
+    OPENAI_TRANSCRIPTION_TIMEOUT_SECONDS: float = 300.0
+    OPENAI_TRANSCRIPTION_TEMPERATURE: float = 0.0
+    SUBTITLE_TRANSCRIPTION_AUDIO_FORMAT: Literal["m4a", "flac"] = "m4a"
+    SUBTITLE_TRANSCRIPTION_AUDIO_BITRATE: str = "48k"
+    SUBTITLE_TRANSCRIPTION_AUDIO_COMPRESSION_LEVEL: int = 5
+    SUBTITLE_TRANSCRIPTION_AUDIO_SAMPLE_RATE: int = 16000
+    SUBTITLE_TRANSCRIPTION_MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
+    S3_FORCE_PATH_STYLE: bool = True
+    S3_MULTIPART_CHUNK_SIZE_BYTES: int = 8 * 1024 * 1024
+    MEDIA_SIGNING_SECRET: str | None = None
+    SIGNED_URL_EXPIRE_SECONDS: int = 900
+    INGEST_TMP_DIR: str = "/tmp/bili-ingest"
+    RUN_LIVE_S3_SMOKE: bool = False
 
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)

@@ -1,31 +1,69 @@
+import os
 from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
+# Host-based pytest runs should default to the repository test DB config.
+os.environ.setdefault("APP_ENV", "test")
+
 from app.core.config import settings
 from app.core.db import engine, init_db
+from app.ingest_models import (
+    AuditEvent,
+    IngestJob,
+    MediaAsset,
+    Uploader,
+    Video,
+    VideoComment,
+    VideoCommentImage,
+    VideoDanmaku,
+    VideoPage,
+    VideoStatSnapshot,
+    VideoSubtitle,
+)
 from app.main import app
-from app.models import Item, User
+from app.models import AppSecret, User
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
 
-@pytest.fixture(scope="session", autouse=True)
+def clear_test_data(session: Session) -> None:
+    session.rollback()
+    for model in (
+        AuditEvent,
+        VideoDanmaku,
+        VideoCommentImage,
+        VideoComment,
+        VideoSubtitle,
+        VideoStatSnapshot,
+        MediaAsset,
+        VideoPage,
+        IngestJob,
+        Video,
+        Uploader,
+        AppSecret,
+        User,
+    ):
+        statement = delete(model)
+        session.execute(statement)
+    session.commit()
+
+
+@pytest.fixture(scope="session")
 def db() -> Generator[Session, None, None]:
+    AppSecret.__table__.create(bind=engine, checkfirst=True)
     with Session(engine) as session:
+        clear_test_data(session)
         init_db(session)
         yield session
-        statement = delete(Item)
-        session.execute(statement)
-        statement = delete(User)
-        session.execute(statement)
-        session.commit()
+        clear_test_data(session)
 
 
 @pytest.fixture(scope="module")
-def client() -> Generator[TestClient, None, None]:
+def client(db: Session) -> Generator[TestClient, None, None]:
+    del db
     with TestClient(app) as c:
         yield c
 
