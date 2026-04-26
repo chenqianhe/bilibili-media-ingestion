@@ -66,8 +66,8 @@ const ChangePassword = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">Change Password</h3>
+    <div className="max-w-md rounded-lg border border-border/70 bg-card p-5">
+      <h3 className="pb-4 text-lg font-semibold">Change Password</h3>
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}

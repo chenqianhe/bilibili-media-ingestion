@@ -272,6 +272,7 @@ def process_upload_ingest_job(
             session,
             job=job,
             source_assets=uploaded_assets,
+            replace_existing_ready=bool(job.options.get("force_refresh")),
         )
 
         completed_at = _now_utc()

@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     FFPROBE_BINARY: str = "ffprobe"
     OPENAI_API_KEY: str | None = None
     OPENAI_API_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_TRANSCRIPTION_MODEL: str = "gpt-4o-transcribe-diarize"
+    OPENAI_TRANSCRIPTION_MODEL: str = "whisper-1"
     OPENAI_TRANSCRIPTION_LANGUAGE: str | None = None
     OPENAI_TRANSCRIPTION_TIMEOUT_SECONDS: float = 300.0
     OPENAI_TRANSCRIPTION_TEMPERATURE: float = 0.0

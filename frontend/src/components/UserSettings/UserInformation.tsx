@@ -81,8 +81,8 @@ const UserInformation = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">User Information</h3>
+    <div className="max-w-md rounded-lg border border-border/70 bg-card p-5">
+      <h3 className="pb-4 text-lg font-semibold">User Information</h3>
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -105,7 +105,7 @@ const UserInformation = () => {
                   <FormLabel>Full name</FormLabel>
                   <p
                     className={cn(
-                      "py-2 truncate max-w-sm",
+                      "max-w-sm truncate py-2",
                       !field.value && "text-muted-foreground",
                     )}
                   >
@@ -131,13 +131,13 @@ const UserInformation = () => {
               ) : (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <p className="py-2 truncate max-w-sm">{field.value}</p>
+                  <p className="max-w-sm truncate py-2">{field.value}</p>
                 </FormItem>
               )
             }
           />
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {editMode ? (
               <>
                 <LoadingButton

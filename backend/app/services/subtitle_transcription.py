@@ -237,9 +237,29 @@ def _build_subtitle_asset(
     job_id: uuid.UUID | None,
     candidate: SubtitleTaskCandidate,
     created_at: datetime,
+    replaces_subtitle_asset_id: uuid.UUID | None = None,
 ) -> MediaAsset:
     source_asset = candidate.source_asset
     filename = f"{_safe_stem(source_asset.filename)}.openai-stt.json"
+    metadata_json: dict[str, object] = {
+        "generator": _SUBTITLE_SOURCE,
+        "queued_at": created_at.isoformat(),
+        "last_transition_at": created_at.isoformat(),
+        "transcription_model": settings.OPENAI_TRANSCRIPTION_MODEL,
+        "transcription_language": settings.OPENAI_TRANSCRIPTION_LANGUAGE,
+        "transcription_temperature": settings.OPENAI_TRANSCRIPTION_TEMPERATURE,
+        "audio_format": settings.SUBTITLE_TRANSCRIPTION_AUDIO_FORMAT,
+        "audio_bitrate": settings.SUBTITLE_TRANSCRIPTION_AUDIO_BITRATE,
+        "audio_sample_rate": settings.SUBTITLE_TRANSCRIPTION_AUDIO_SAMPLE_RATE,
+        "audio_split_strategy": "whole_file_then_equal_split",
+        "transcription_source_asset_id": str(source_asset.id),
+        "transcription_source_asset_type": source_asset.asset_type,
+        "transcription_source_asset_ids": [
+            str(asset_id) for asset_id in candidate.source_asset_ids
+        ],
+    }
+    if replaces_subtitle_asset_id is not None:
+        metadata_json["replaces_subtitle_asset_id"] = str(replaces_subtitle_asset_id)
     asset = MediaAsset(
         bvid=source_asset.bvid,
         cid=source_asset.cid,
@@ -252,23 +272,7 @@ def _build_subtitle_asset(
         original_url_hash=source_asset.original_url_hash,
         filename=filename,
         content_type="application/json",
-        metadata_json={
-            "generator": _SUBTITLE_SOURCE,
-            "queued_at": created_at.isoformat(),
-            "last_transition_at": created_at.isoformat(),
-            "transcription_model": settings.OPENAI_TRANSCRIPTION_MODEL,
-            "transcription_language": settings.OPENAI_TRANSCRIPTION_LANGUAGE,
-            "transcription_temperature": settings.OPENAI_TRANSCRIPTION_TEMPERATURE,
-            "audio_format": settings.SUBTITLE_TRANSCRIPTION_AUDIO_FORMAT,
-            "audio_bitrate": settings.SUBTITLE_TRANSCRIPTION_AUDIO_BITRATE,
-            "audio_sample_rate": settings.SUBTITLE_TRANSCRIPTION_AUDIO_SAMPLE_RATE,
-            "audio_split_strategy": "whole_file_then_equal_split",
-            "transcription_source_asset_id": str(source_asset.id),
-            "transcription_source_asset_type": source_asset.asset_type,
-            "transcription_source_asset_ids": [
-                str(asset_id) for asset_id in candidate.source_asset_ids
-            ],
-        },
+        metadata_json=metadata_json,
     )
     asset.s3_key = build_asset_storage_key(
         asset_type=asset.asset_type,
@@ -285,6 +289,7 @@ def enqueue_subtitle_transcription_tasks(
     *,
     job: IngestJob,
     source_assets: list[MediaAsset],
+    replace_existing_ready: bool = False,
 ) -> list[MediaAsset]:
     if not bool(job.options.get("transcribe_subtitles")):
         return []
@@ -298,11 +303,19 @@ def enqueue_subtitle_transcription_tasks(
             cid=candidate.source_asset.cid,
         )
         if existing_asset is not None:
-            continue
+            if existing_asset.status in {"pending", "processing"}:
+                continue
+            if existing_asset.status == "ready" and not replace_existing_ready:
+                continue
         asset = _build_subtitle_asset(
             job_id=job.id,
             candidate=candidate,
             created_at=created_at,
+            replaces_subtitle_asset_id=(
+                existing_asset.id
+                if existing_asset is not None and existing_asset.status == "ready"
+                else None
+            ),
         )
         session.add(asset)
         queued_assets.append(asset)
@@ -350,6 +363,7 @@ def backfill_subtitle_transcription_tasks(
     bvid: str | None = None,
     cid: int | None = None,
     limit: int | None = None,
+    replace_existing_ready: bool = False,
 ) -> list[MediaAsset]:
     if limit is not None and limit <= 0:
         return []
@@ -371,12 +385,20 @@ def backfill_subtitle_transcription_tasks(
             cid=candidate.source_asset.cid,
         )
         if existing_asset is not None:
-            continue
+            if existing_asset.status in {"pending", "processing"}:
+                continue
+            if existing_asset.status == "ready" and not replace_existing_ready:
+                continue
 
         asset = _build_subtitle_asset(
             job_id=candidate.source_asset.job_id,
             candidate=candidate,
             created_at=created_at,
+            replaces_subtitle_asset_id=(
+                existing_asset.id
+                if existing_asset is not None and existing_asset.status == "ready"
+                else None
+            ),
         )
         session.add(asset)
         queued_assets.append(asset)
@@ -392,6 +414,11 @@ def backfill_subtitle_transcription_tasks(
                 "source_asset_id": str(candidate.source_asset.id),
                 "source_asset_ids": [str(asset_id) for asset_id in candidate.source_asset_ids],
                 **({"job_id": str(asset.job_id)} if asset.job_id is not None else {}),
+                **(
+                    {"replaces_subtitle_asset_id": str(existing_asset.id)}
+                    if existing_asset is not None and existing_asset.status == "ready"
+                    else {}
+                ),
             },
         )
     return queued_assets

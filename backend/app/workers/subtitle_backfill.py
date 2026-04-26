@@ -33,6 +33,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Enqueue up to N missing subtitle tasks before exiting",
     )
     parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help="Re-enqueue subtitle tasks even when a ready subtitle asset already exists",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -43,12 +48,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def _log_queued_assets(queued_assets: list[dict[str, object]]) -> None:
     for asset in queued_assets:
+        replacement_suffix = ""
+        if asset.get("replaces_subtitle_asset_id") is not None:
+            replacement_suffix = (
+                f" replacing_subtitle_asset_id={asset['replaces_subtitle_asset_id']}"
+            )
         logger.info(
-            "Queued subtitle task %s for bvid=%s cid=%s source_asset_id=%s",
+            "Queued subtitle task %s for bvid=%s cid=%s source_asset_id=%s%s",
             asset["id"],
             asset["bvid"],
             asset["cid"],
             asset["source_asset_id"],
+            replacement_suffix,
         )
 
 
@@ -66,6 +77,7 @@ def main() -> int:
                 bvid=args.bvid,
                 cid=args.cid,
                 limit=args.limit,
+                replace_existing_ready=args.replace_existing,
             )
             queued_asset_summaries = [
                 {
@@ -73,6 +85,9 @@ def main() -> int:
                     "bvid": asset.bvid,
                     "cid": asset.cid,
                     "source_asset_id": asset.metadata_json.get("transcription_source_asset_id"),
+                    "replaces_subtitle_asset_id": asset.metadata_json.get(
+                        "replaces_subtitle_asset_id"
+                    ),
                 }
                 for asset in queued_assets
             ]

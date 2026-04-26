@@ -82,6 +82,14 @@ const videoSearchSchema = z.object({
 const commentLimitOptions = ["30", "50", "100", "200"]
 const danmakuLimitOptions = ["40", "100", "250", "500"]
 const subtitleLimitOptions = ["12", "25", "50", "100"]
+const compactStatsGridClass =
+  "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]"
+const filterGridClass =
+  "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))]"
+const metricGridClass =
+  "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))]"
+const imageGridClass =
+  "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]"
 
 export const Route = createFileRoute("/_layout/videos")({
   validateSearch: (search) => videoSearchSchema.parse(search),
@@ -220,17 +228,17 @@ function MetricCard({
   return (
     <Card className="border-border/70 bg-card/90">
       <CardHeader className="space-y-3 pb-0">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-muted-foreground">
             <Icon className="size-4 text-primary" />
-            {label}
+            <span className="truncate">{label}</span>
           </div>
-          {badge}
+          {badge ? <div className="ml-auto flex shrink-0">{badge}</div> : null}
         </div>
       </CardHeader>
-      <CardContent className="space-y-1 pt-0">
+      <CardContent className="space-y-2 pt-0">
         <div className="text-3xl font-semibold tracking-tight">{value}</div>
-        <div className="text-sm text-muted-foreground">{hint}</div>
+        <div className="text-sm leading-6 text-muted-foreground">{hint}</div>
       </CardContent>
     </Card>
   )
@@ -238,11 +246,11 @@ function MetricCard({
 
 function OverviewField({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div>
-      <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+    <div className="min-w-0">
+      <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 text-sm font-medium">{value}</div>
+      <div className="mt-2 break-words text-sm font-medium">{value}</div>
     </div>
   )
 }
@@ -324,14 +332,14 @@ function CommentImageGrid({
 
   return (
     <div className="space-y-3">
-      <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+      <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
         Comment Images
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className={imageGridClass}>
         {images.map((image, imageIndex) => (
           <div
             key={image.asset_id ?? `${commentRpid}-${imageIndex}`}
-            className="overflow-hidden rounded-2xl border border-border/70 bg-muted/20"
+            className="overflow-hidden rounded-lg border border-border/70 bg-muted/20"
           >
             {image.source_url ? (
               <img
@@ -364,11 +372,11 @@ function CommentImageGrid({
                 ) : null}
               </div>
               {image.error_message ? (
-                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+                <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
                   {image.error_message}
                 </div>
               ) : image.storage_status === "skipped" ? (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
                   This image was recorded in PostgreSQL but was not uploaded as
                   an object-storage asset.
                 </div>
@@ -394,7 +402,7 @@ function CommentThreadCard({
   return (
     <div className="space-y-3">
       <div
-        className={`rounded-2xl border border-border/70 ${
+        className={`rounded-lg border border-border/70 ${
           isReply ? "bg-muted/20" : "bg-card/90"
         }`}
       >
@@ -425,13 +433,13 @@ function CommentThreadCard({
           </div>
 
           {isOrphan ? (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
               This reply&apos;s parent is not included in the current filtered
               result set.
             </div>
           ) : null}
 
-          <p className="whitespace-pre-wrap text-sm leading-7">
+          <p className="whitespace-pre-wrap break-words text-sm leading-7">
             {comment.message || "No text content"}
           </p>
 
@@ -444,7 +452,7 @@ function CommentThreadCard({
 
       {replies.length ? (
         <div className="space-y-3 border-l border-border/70 pl-4 sm:pl-6">
-          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
             {replies.length === 1
               ? "1 threaded reply"
               : `${replies.length} threaded replies`}
@@ -507,7 +515,7 @@ function DeleteVideoDialog({
             this video will be permanently removed.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+        <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3">
           <div className="text-sm font-semibold">{title}</div>
           <div className="mt-1 text-xs text-muted-foreground">{bvid}</div>
         </div>
@@ -830,31 +838,28 @@ function VideosPage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[32px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,0.92))] p-8 dark:bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.16),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-primary/80">
-              Data Workspace
-            </div>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight">
-              Inspect crawl coverage, stored rows, and ingest health.
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
-              This page is tuned for operators, not playback. Use it to jump
-              between BVIDs, confirm what landed in PostgreSQL, inspect
-              completeness, and spot broken or partial crawls quickly.
-            </p>
+      <section className="flex flex-col gap-4 border-b pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            Data Workspace
           </div>
-          <div className="w-full max-w-sm">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="Search by BVID or title"
-                value={queryText}
-                onChange={(event) => setQueryText(event.target.value)}
-              />
-            </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+            Inspect crawl coverage, stored rows, and ingest health.
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Jump between BVIDs, confirm what landed in PostgreSQL, inspect
+            completeness, and spot broken or partial crawls quickly.
+          </p>
+        </div>
+        <div className="w-full max-w-sm">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search by BVID or title"
+              value={queryText}
+              onChange={(event) => setQueryText(event.target.value)}
+            />
           </div>
         </div>
       </section>
@@ -881,7 +886,7 @@ function VideosPage() {
                 <button
                   type="button"
                   key={video.bvid}
-                  className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                  className={`w-full rounded-lg border px-4 py-4 text-left transition ${
                     selectedBvid === video.bvid
                       ? "border-primary/50 bg-primary/5"
                       : "border-border/70 bg-card hover:bg-muted/20"
@@ -915,7 +920,7 @@ function VideosPage() {
                 </button>
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
                 No matching videos found.
               </div>
             )}
@@ -965,11 +970,11 @@ function VideosPage() {
                               ? ` · aid ${selectedVideo.aid}`
                               : ""}
                           </div>
-                          <h2 className="mt-2 text-2xl font-semibold">
+                          <h2 className="mt-2 break-words text-2xl font-semibold">
                             {selectedVideo.title}
                           </h2>
                           {selectedVideo.description ? (
-                            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">
                               {selectedVideo.description}
                             </p>
                           ) : null}
@@ -1024,15 +1029,15 @@ function VideosPage() {
                         {selectedVideo.cover_url ? (
                           <img
                             alt={`${selectedVideo.title} cover`}
-                            className="aspect-video w-full rounded-2xl border border-border/70 object-cover"
+                            className="aspect-video w-full rounded-lg border border-border/70 object-cover"
                             src={selectedVideo.cover_url}
                           />
                         ) : (
-                          <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 text-sm text-muted-foreground">
+                          <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 text-sm text-muted-foreground">
                             No cover image
                           </div>
                         )}
-                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 text-sm">
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
                           <div className="font-medium">Storage Snapshot</div>
                           <div className="mt-2 text-muted-foreground">
                             {formatCount(assets.length)} assets across{" "}
@@ -1057,7 +1062,7 @@ function VideosPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {latestJobSummary ? (
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
                         <div className="flex flex-wrap items-center gap-2">
                           <StatusBadge status={latestJobSummary.status} />
                           {latestJobSummary.phase ? (
@@ -1066,7 +1071,9 @@ function VideosPage() {
                             </div>
                           ) : null}
                         </div>
-                        <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+                        <div
+                          className={`${compactStatsGridClass} mt-3 text-sm`}
+                        >
                           <OverviewField
                             label="Created"
                             value={formatDateTime(latestJobSummary.created_at)}
@@ -1077,45 +1084,45 @@ function VideosPage() {
                           />
                         </div>
                         {latestJobSummary.error?.message ? (
-                          <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+                          <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
                             {latestJobSummary.error.message}
                           </div>
                         ) : null}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                      <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                         No ingest jobs are visible for this BVID yet.
                       </div>
                     )}
 
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                    <div className={compactStatsGridClass}>
+                      <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-4">
+                        <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                           Comments
                         </div>
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <CoverageBadge completeness={commentCompleteness} />
                           <div className="text-sm text-muted-foreground">
                             {formatCount(commentStoredCount)} stored
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                      <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-4">
+                        <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                           Danmaku
                         </div>
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <CoverageBadge completeness={danmakuCompleteness} />
                           <div className="text-sm text-muted-foreground">
                             {formatCount(danmakuStoredCount)} stored
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                      <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-4">
+                        <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                           Subtitles
                         </div>
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <CoverageBadge completeness={subtitleCompleteness} />
                           <div className="text-sm text-muted-foreground">
                             {formatCount(subtitleStoredCount)} stored
@@ -1124,21 +1131,21 @@ function VideosPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <RefreshCw className="size-4 text-primary" />
+                    <div className="rounded-lg border border-primary/15 bg-primary/5 p-4">
+                      <div className="flex flex-col gap-4">
+                        <div className="min-w-0 space-y-2">
+                          <div className="flex min-w-0 items-start gap-2 text-sm font-medium">
+                            <RefreshCw className="mt-0.5 size-4 shrink-0 text-primary" />
                             Only Refresh Comments + Danmaku
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm leading-6 text-muted-foreground">
                             Queue a merge refresh for auxiliary rows only.
                             Existing comments or danmaku that later disappear
                             upstream stay stored locally.
                           </div>
                         </div>
                         <LoadingButton
-                          className="w-full lg:w-auto"
+                          className="h-auto min-h-9 w-full whitespace-normal py-2 text-center"
                           disabled={!selectedBvid}
                           loading={refreshAuxiliaryMutation.isPending}
                           onClick={() => refreshAuxiliaryMutation.mutate()}
@@ -1151,7 +1158,7 @@ function VideosPage() {
                 </Card>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className={metricGridClass}>
                 <MetricCard
                   icon={Package}
                   label="Assets"
@@ -1234,7 +1241,7 @@ function VideosPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className={compactStatsGridClass}>
                               <OverviewField
                                 label="Expected"
                                 value={formatCount(
@@ -1288,7 +1295,7 @@ function VideosPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                          <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                             No comments completeness summary is attached to the
                             visible crawl history for this video.
                           </div>
@@ -1311,9 +1318,9 @@ function VideosPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid gap-3 md:grid-cols-3">
+                        <div className={filterGridClass}>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Root RPId
                             </div>
                             <Input
@@ -1326,7 +1333,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Parent RPId
                             </div>
                             <Input
@@ -1339,7 +1346,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Page Size
                             </div>
                             <Select
@@ -1363,11 +1370,12 @@ function VideosPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="text-sm text-muted-foreground">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm leading-6 text-muted-foreground">
                             {commentQuerySummary}
                           </div>
                           <Button
+                            className="w-full sm:w-auto"
                             size="sm"
                             variant="outline"
                             onClick={() => {
@@ -1504,7 +1512,7 @@ function VideosPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className={compactStatsGridClass}>
                               <OverviewField
                                 label="Stored"
                                 value={formatCount(
@@ -1554,7 +1562,7 @@ function VideosPage() {
                             </div>
 
                             {danmakuCompleteness.pages.length ? (
-                              <div className="overflow-hidden rounded-2xl border border-border/70">
+                              <div className="overflow-x-auto rounded-lg border border-border/70">
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
@@ -1591,7 +1599,7 @@ function VideosPage() {
                             ) : null}
                           </div>
                         ) : (
-                          <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                          <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                             No danmaku completeness summary is attached to the
                             visible crawl history for this video.
                           </div>
@@ -1611,9 +1619,9 @@ function VideosPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className={filterGridClass}>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               CID
                             </div>
                             <Input
@@ -1625,7 +1633,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Source
                             </div>
                             <Select
@@ -1646,7 +1654,7 @@ function VideosPage() {
                             </Select>
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               History Date
                             </div>
                             <Input
@@ -1658,7 +1666,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Limit
                             </div>
                             <Select
@@ -1679,13 +1687,14 @@ function VideosPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="text-sm text-muted-foreground">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm leading-6 text-muted-foreground">
                             {danmakuQuery.isFetching
                               ? "Refreshing danmaku rows…"
                               : `${formatCount(danmakuQuery.data?.count ?? 0)} rows in the current result set`}
                           </div>
                           <Button
+                            className="w-full sm:w-auto"
                             size="sm"
                             variant="outline"
                             onClick={() => {
@@ -1704,60 +1713,62 @@ function VideosPage() {
 
                   <Card className="border-border/70 bg-card/90">
                     <CardContent className="pt-6">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>CID</TableHead>
-                            <TableHead>Offset</TableHead>
-                            <TableHead>Source</TableHead>
-                            <TableHead>History Date</TableHead>
-                            <TableHead>Sent At</TableHead>
-                            <TableHead>Content</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {danmakuQuery.isLoading ? (
+                      <div className="overflow-x-auto rounded-lg border border-border/70">
+                        <Table>
+                          <TableHeader>
                             <TableRow>
-                              <TableCell
-                                className="text-muted-foreground"
-                                colSpan={6}
-                              >
-                                Loading danmaku…
-                              </TableCell>
+                              <TableHead>CID</TableHead>
+                              <TableHead>Offset</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>History Date</TableHead>
+                              <TableHead>Sent At</TableHead>
+                              <TableHead>Content</TableHead>
                             </TableRow>
-                          ) : danmakuQuery.data?.danmaku.length ? (
-                            danmakuQuery.data.danmaku.map((entry) => (
-                              <TableRow
-                                key={`${entry.cid}-${entry.danmaku_id}-${entry.sent_at}`}
-                              >
-                                <TableCell>{entry.cid}</TableCell>
-                                <TableCell>
-                                  {formatOffset(entry.time_offset_seconds)}
-                                </TableCell>
-                                <TableCell>{entry.source}</TableCell>
-                                <TableCell>
-                                  {entry.history_date || "Snapshot"}
-                                </TableCell>
-                                <TableCell>
-                                  {formatDateTime(entry.sent_at)}
-                                </TableCell>
-                                <TableCell className="max-w-xl whitespace-normal">
-                                  {entry.content || "No content"}
+                          </TableHeader>
+                          <TableBody>
+                            {danmakuQuery.isLoading ? (
+                              <TableRow>
+                                <TableCell
+                                  className="text-muted-foreground"
+                                  colSpan={6}
+                                >
+                                  Loading danmaku…
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                className="text-muted-foreground"
-                                colSpan={6}
-                              >
-                                No danmaku matched the current filters.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                            ) : danmakuQuery.data?.danmaku.length ? (
+                              danmakuQuery.data.danmaku.map((entry) => (
+                                <TableRow
+                                  key={`${entry.cid}-${entry.danmaku_id}-${entry.sent_at}`}
+                                >
+                                  <TableCell>{entry.cid}</TableCell>
+                                  <TableCell>
+                                    {formatOffset(entry.time_offset_seconds)}
+                                  </TableCell>
+                                  <TableCell>{entry.source}</TableCell>
+                                  <TableCell>
+                                    {entry.history_date || "Snapshot"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatDateTime(entry.sent_at)}
+                                  </TableCell>
+                                  <TableCell className="max-w-xl whitespace-normal">
+                                    {entry.content || "No content"}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  className="text-muted-foreground"
+                                  colSpan={6}
+                                >
+                                  No danmaku matched the current filters.
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -1793,7 +1804,7 @@ function VideosPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className={compactStatsGridClass}>
                               <OverviewField
                                 label="Stored"
                                 value={formatCount(
@@ -1830,7 +1841,7 @@ function VideosPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                          <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                             No subtitle completeness summary is attached to the
                             visible crawl history for this video.
                           </div>
@@ -1849,9 +1860,9 @@ function VideosPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid gap-3 md:grid-cols-3">
+                        <div className={filterGridClass}>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               CID
                             </div>
                             <Input
@@ -1863,7 +1874,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Language
                             </div>
                             <Input
@@ -1875,7 +1886,7 @@ function VideosPage() {
                             />
                           </div>
                           <div>
-                            <div className="mb-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                            <div className="mb-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                               Limit
                             </div>
                             <Select
@@ -1896,13 +1907,14 @@ function VideosPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="text-sm text-muted-foreground">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm leading-6 text-muted-foreground">
                             {subtitlesQuery.isFetching
                               ? "Refreshing subtitle tracks…"
                               : `${formatCount(subtitlesQuery.data?.count ?? 0)} tracks in the current result set`}
                           </div>
                           <Button
+                            className="w-full sm:w-auto"
                             size="sm"
                             variant="outline"
                             onClick={() => {
@@ -1946,7 +1958,7 @@ function VideosPage() {
                             </CardHeader>
                             <CardContent className="space-y-3">
                               {body.length ? (
-                                <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                                <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-4">
                                   {body.slice(0, 24).map((line, index) => (
                                     <div
                                       key={`${subtitle.subtitle_id}-${index}`}
@@ -1996,9 +2008,11 @@ function VideosPage() {
                       <CardContent>
                         <div className="max-w-4xl">
                           <VideoPlayback
+                            bvid={selectedVideo.bvid}
                             fallbackAssetId={playbackAsset?.asset_id}
                             hlsAssetId={hlsAsset?.asset_id}
                             posterUrl={selectedVideo.cover_url}
+                            preferredCid={hlsAsset?.cid ?? playbackAsset?.cid}
                           />
                         </div>
                       </CardContent>
@@ -2016,59 +2030,61 @@ function VideosPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Variant</TableHead>
-                            <TableHead>CID</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Format</TableHead>
-                            <TableHead>Size</TableHead>
-                            <TableHead>Ready</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {assets.length ? (
-                            assets.map((asset) => (
-                              <TableRow key={asset.asset_id}>
-                                <TableCell className="font-medium">
-                                  {asset.asset_type}
-                                </TableCell>
-                                <TableCell>
-                                  {asset.variant || "default"}
-                                </TableCell>
-                                <TableCell>{asset.cid ?? "—"}</TableCell>
-                                <TableCell>
-                                  <StatusBadge status={asset.status} />
-                                </TableCell>
-                                <TableCell>
-                                  {asset.content_type ||
-                                    asset.container_format ||
-                                    "Unknown"}
-                                </TableCell>
-                                <TableCell>
-                                  {formatBytes(asset.size_bytes)}
-                                </TableCell>
-                                <TableCell>
-                                  {formatDateTime(
-                                    asset.ready_at || asset.created_at,
-                                  )}
+                      <div className="overflow-x-auto rounded-lg border border-border/70">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Variant</TableHead>
+                              <TableHead>CID</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Format</TableHead>
+                              <TableHead>Size</TableHead>
+                              <TableHead>Ready</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {assets.length ? (
+                              assets.map((asset) => (
+                                <TableRow key={asset.asset_id}>
+                                  <TableCell className="font-medium">
+                                    {asset.asset_type}
+                                  </TableCell>
+                                  <TableCell>
+                                    {asset.variant || "default"}
+                                  </TableCell>
+                                  <TableCell>{asset.cid ?? "—"}</TableCell>
+                                  <TableCell>
+                                    <StatusBadge status={asset.status} />
+                                  </TableCell>
+                                  <TableCell>
+                                    {asset.content_type ||
+                                      asset.container_format ||
+                                      "Unknown"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatBytes(asset.size_bytes)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatDateTime(
+                                      asset.ready_at || asset.created_at,
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  className="text-muted-foreground"
+                                  colSpan={7}
+                                >
+                                  No assets are indexed for this video yet.
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                className="text-muted-foreground"
-                                colSpan={7}
-                              >
-                                No assets are indexed for this video yet.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -2088,7 +2104,7 @@ function VideosPage() {
                     <CardContent className="space-y-4">
                       {latestJobSummary ? (
                         <>
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <div className={compactStatsGridClass}>
                             <OverviewField
                               label="Status"
                               value={
@@ -2113,7 +2129,7 @@ function VideosPage() {
                             />
                           </div>
                           {latestJobSummary.error?.message ? (
-                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+                            <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
                               {latestJobSummary.error.message}
                             </div>
                           ) : null}
@@ -2127,7 +2143,7 @@ function VideosPage() {
                           />
                         </>
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                        <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                           No ingest jobs are visible for this BVID.
                         </div>
                       )}
@@ -2139,49 +2155,51 @@ function VideosPage() {
                       <CardTitle>Recent Jobs</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Phase</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead>Finished</TableHead>
-                            <TableHead>Error</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {jobsQuery.data?.data.length ? (
-                            jobsQuery.data.data.map((job) => (
-                              <TableRow key={job.job_id}>
-                                <TableCell>
-                                  <StatusBadge status={job.status} />
-                                </TableCell>
-                                <TableCell className="max-w-md whitespace-normal">
-                                  {job.phase || "Unknown"}
-                                </TableCell>
-                                <TableCell>
-                                  {formatDateTime(job.created_at)}
-                                </TableCell>
-                                <TableCell>
-                                  {formatDateTime(job.finished_at)}
-                                </TableCell>
-                                <TableCell className="max-w-sm whitespace-normal text-sm text-muted-foreground">
-                                  {job.error?.message || "—"}
+                      <div className="overflow-x-auto rounded-lg border border-border/70">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Phase</TableHead>
+                              <TableHead>Created</TableHead>
+                              <TableHead>Finished</TableHead>
+                              <TableHead>Error</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {jobsQuery.data?.data.length ? (
+                              jobsQuery.data.data.map((job) => (
+                                <TableRow key={job.job_id}>
+                                  <TableCell>
+                                    <StatusBadge status={job.status} />
+                                  </TableCell>
+                                  <TableCell className="max-w-md whitespace-normal">
+                                    {job.phase || "Unknown"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatDateTime(job.created_at)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatDateTime(job.finished_at)}
+                                  </TableCell>
+                                  <TableCell className="max-w-sm whitespace-normal text-sm text-muted-foreground">
+                                    {job.error?.message || "—"}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  className="text-muted-foreground"
+                                  colSpan={5}
+                                >
+                                  No ingest jobs recorded for this BVID.
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                className="text-muted-foreground"
-                                colSpan={5}
-                              >
-                                No ingest jobs recorded for this BVID.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>

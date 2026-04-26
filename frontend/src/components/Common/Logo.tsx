@@ -21,10 +21,10 @@ export function Logo({
           role="img"
           className={cn("group-data-[collapsible=icon]:hidden", className)}
         >
-          <div className="text-[11px] font-semibold uppercase tracking-[0.36em] text-primary/80">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
             Bilibili
           </div>
-          <div className="text-sm font-semibold tracking-[0.2em]">
+          <div className="text-sm font-semibold tracking-[0.14em]">
             Media Ingestion
           </div>
         </div>
@@ -32,7 +32,7 @@ export function Logo({
           aria-label="Bilibili Media Ingestion Service"
           role="img"
           className={cn(
-            "hidden size-8 items-center justify-center rounded-xl border border-border/70 bg-gradient-to-br from-emerald-500/15 via-sky-500/15 to-cyan-500/15 text-xs font-semibold tracking-[0.18em] group-data-[collapsible=icon]:flex",
+            "hidden size-8 items-center justify-center rounded-lg border border-border/70 bg-gradient-to-br from-emerald-500/15 via-sky-500/15 to-cyan-500/15 text-xs font-semibold tracking-[0.18em] group-data-[collapsible=icon]:flex",
             className,
           )}
         >
@@ -46,16 +46,16 @@ export function Logo({
         className={cn(
           variant === "full"
             ? "flex flex-col"
-            : "flex size-8 items-center justify-center rounded-xl border border-border/70 bg-gradient-to-br from-emerald-500/15 via-sky-500/15 to-cyan-500/15 text-xs font-semibold tracking-[0.18em]",
+            : "flex size-8 items-center justify-center rounded-lg border border-border/70 bg-gradient-to-br from-emerald-500/15 via-sky-500/15 to-cyan-500/15 text-xs font-semibold tracking-[0.18em]",
           className,
         )}
       >
         {variant === "full" ? (
           <>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.36em] text-primary/80">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
               Bilibili
             </div>
-            <div className="text-sm font-semibold tracking-[0.2em]">
+            <div className="text-sm font-semibold tracking-[0.14em]">
               Media Ingestion
             </div>
           </>

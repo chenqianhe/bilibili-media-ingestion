@@ -122,3 +122,17 @@
     cursor: pointer;
   }
 }
+
+@keyframes media-preview-danmaku {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(-100vw - 32rem));
+    opacity: 1;
+  }
+}

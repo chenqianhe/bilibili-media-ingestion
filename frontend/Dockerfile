@@ -5,6 +5,8 @@ WORKDIR /app
 
 COPY package.json bun.lock /app/
 
+COPY scripts /app/scripts
+
 COPY frontend/package.json /app/frontend/
 
 WORKDIR /app/frontend

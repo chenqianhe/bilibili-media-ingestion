@@ -98,8 +98,8 @@ export default function BilibiliAccessSettings() {
           ) : status ? (
             <>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Metadata
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -119,8 +119,8 @@ export default function BilibiliAccessSettings() {
                     the env fallback header.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Source Download
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -142,7 +142,7 @@ export default function BilibiliAccessSettings() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border/70 bg-muted/10 p-4 text-sm">
+              <div className="rounded-lg border border-border/70 bg-muted/10 p-4 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">
                     {sourceLabel(status.effective_cookie_source)}
@@ -165,7 +165,7 @@ export default function BilibiliAccessSettings() {
                     <Badge variant="secondary">`YT_DLP_IMPERSONATE` set</Badge>
                   ) : null}
                 </div>
-                <div className="mt-4 space-y-2 text-muted-foreground">
+                <div className="mt-4 space-y-2 break-words text-muted-foreground">
                   <div>
                     Derived metadata cookie summary:{" "}
                     <span className="text-foreground">
@@ -251,7 +251,9 @@ export default function BilibiliAccessSettings() {
             <Input
               placeholder="Mozilla/5.0 (...) Chrome/147.0.0.0 Safari/537.36"
               value={downloadUserAgentDraft}
-              onChange={(event) => setDownloadUserAgentDraft(event.target.value)}
+              onChange={(event) =>
+                setDownloadUserAgentDraft(event.target.value)
+              }
             />
             <p className="text-sm text-muted-foreground">
               Optional but recommended for `yt-dlp`. If left blank, the worker
@@ -259,8 +261,9 @@ export default function BilibiliAccessSettings() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <LoadingButton
+              className="w-full sm:w-auto"
               loading={saveMutation.isPending}
               disabled={!netscapeCookiesDraft.trim()}
               onClick={() => saveMutation.mutate()}
@@ -268,6 +271,7 @@ export default function BilibiliAccessSettings() {
               Save Netscape Cookies
             </LoadingButton>
             <LoadingButton
+              className="w-full sm:w-auto"
               variant="outline"
               loading={clearMutation.isPending}
               disabled={!status?.has_database_override}

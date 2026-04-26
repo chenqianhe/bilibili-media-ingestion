@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
@@ -87,13 +86,13 @@ function MetricCard({
     <Card className="border-border/70 bg-card/80 backdrop-blur">
       <CardContent className="flex items-start justify-between gap-4 pt-6">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {label}
           </div>
           <div className="mt-3 text-3xl font-semibold">{value}</div>
           <p className="mt-2 text-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="rounded-2xl border border-border/70 bg-muted/40 p-3">
+        <div className="rounded-lg border border-border/70 bg-muted/40 p-3">
           <Icon className="size-5 text-primary" />
         </div>
       </CardContent>
@@ -115,7 +114,7 @@ function OptionToggle({
   const checkboxId = useId()
 
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+    <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-4">
       <Checkbox
         id={checkboxId}
         checked={checked}
@@ -141,7 +140,7 @@ function JobList({
 }) {
   if (jobs.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
         No ingest jobs yet.
       </div>
     )
@@ -153,7 +152,7 @@ function JobList({
         <button
           type="button"
           key={job.job_id}
-          className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+          className={`w-full rounded-lg border px-4 py-4 text-left transition ${
             selectedJobId === job.job_id
               ? "border-primary/50 bg-primary/5"
               : "border-border/70 bg-card hover:bg-muted/20"
@@ -243,44 +242,40 @@ function Dashboard() {
   ).length
 
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[32px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.20),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.88))] p-8 text-white shadow-xl">
-        <div className="grid gap-8 lg:grid-cols-[1.4fr_0.8fr]">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-200/80">
-              Bilibili Media Ingestion
-            </div>
-            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight">
-              Operate the ingest pipeline, inspect auxiliary data, and jump into
-              playable outputs from one console.
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-              The backend now supports proxy playback, HLS manifests, recent job
-              browse APIs, subtitle reads, and a video detail surface for
-              assets/comments/danmaku.
-            </p>
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 border-b pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            Bilibili Media Ingestion
           </div>
-          <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur">
-            <div className="text-sm font-semibold text-cyan-100">
-              Current Operator
-            </div>
-            <div className="mt-3 text-2xl font-semibold">
-              {currentUser?.full_name || currentUser?.email}
-            </div>
-            <div className="mt-2 text-sm text-slate-300">
-              {currentUser?.is_superuser
-                ? "Superuser access enabled"
-                : "Standard viewer/operator access"}
-            </div>
-            <Separator className="my-4 bg-white/10" />
-            <Link
-              className="inline-flex items-center gap-2 text-sm font-medium text-cyan-100 hover:text-white"
-              to="/videos"
-            >
-              Open video browser
-              <ArrowRight className="size-4" />
-            </Link>
+          <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight">
+            Operate the ingest pipeline, inspect auxiliary data, and jump into
+            playable outputs from one console.
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Submit BVIDs, monitor recent jobs, review indexed videos, and open
+            playable derivatives without leaving the dashboard.
+          </p>
+        </div>
+        <div className="w-full rounded-lg border border-border/70 bg-card p-4 lg:max-w-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Current Operator
           </div>
+          <div className="mt-2 truncate text-lg font-semibold">
+            {currentUser?.full_name || currentUser?.email}
+          </div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {currentUser?.is_superuser
+              ? "Superuser access enabled"
+              : "Standard viewer/operator access"}
+          </div>
+          <Link
+            className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            to="/videos"
+          >
+            Open video browser
+            <ArrowRight className="size-4" />
+          </Link>
         </div>
       </section>
 
@@ -347,7 +342,7 @@ function Dashboard() {
                 onChange={(event) => setInputValue(event.target.value)}
               />
             </div>
-            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
               <div className="text-sm font-semibold">Download Quality</div>
               <div className="mt-1 text-sm text-muted-foreground">
                 Default uses the best available source stream. Set a cap only
@@ -496,14 +491,14 @@ function Dashboard() {
                 Loading videos…
               </div>
             ) : recentVideos.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
                 No videos indexed yet.
               </div>
             ) : (
               recentVideos.map((video) => (
                 <Link
                   key={video.bvid}
-                  className="block rounded-2xl border border-border/70 bg-muted/15 px-4 py-4 transition hover:bg-muted/30"
+                  className="block rounded-lg border border-border/70 bg-muted/15 px-4 py-4 transition hover:bg-muted/30"
                   search={{ bvid: video.bvid }}
                   to="/videos"
                 >
@@ -538,7 +533,7 @@ function Dashboard() {
               </div>
             ) : selectedJobQuery.data ? (
               <>
-                <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
+                <div className="rounded-lg border border-border/70 bg-muted/15 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm text-muted-foreground">
@@ -583,7 +578,7 @@ function Dashboard() {
                   </div>
                 </div>
                 {selectedJobQuery.data.error ? (
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
                     <div className="font-semibold">Job Error</div>
                     <div className="mt-2">
                       {selectedJobQuery.data.error.code}:{" "}
@@ -593,7 +588,7 @@ function Dashboard() {
                 ) : null}
               </>
             ) : (
-              <div className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
                 Select a job to inspect its progress payload.
               </div>
             )}

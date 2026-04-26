@@ -20,6 +20,7 @@ dependencies = [
     "pyjwt<3.0.0,>=2.8.0",
     "pwdlib[argon2,bcrypt]>=0.3.0",
     "botocore>=1.42.91",
+    "yt-dlp[curl-cffi,default]>=2026.3.17",
 ]
 
 [dependency-groups]

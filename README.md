@@ -377,6 +377,7 @@ uv run python -m app.workers.upload_ingest --once
 uv run python -m app.workers.media_processing --once
 uv run python -m app.workers.subtitle_transcription --once
 uv run python -m app.workers.subtitle_backfill --bvid BV1xx411c7mD
+uv run python -m app.workers.subtitle_backfill --bvid BV1xx411c7mD --replace-existing
 ```
 
 每个 worker 也支持：
@@ -395,6 +396,7 @@ uv run python -m app.workers.subtitle_backfill --bvid BV1xx411c7mD
 - `--bvid`
 - `--cid`
 - `--limit`
+- `--replace-existing`
 
 ## 配置说明
 

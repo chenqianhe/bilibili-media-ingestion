@@ -103,7 +103,7 @@ class FakeTranscriber:
     def __init__(
         self,
         *,
-        model: str = "gpt-4o-transcribe-diarize",
+        model: str = "whisper-1",
         supports_prompt: bool = False,
     ) -> None:
         self._model = model
@@ -181,6 +181,7 @@ def create_ingest_job(
     *,
     bvid: str,
     transcribe_subtitles: bool = True,
+    force_refresh: bool = False,
 ) -> IngestJob:
     job = IngestJob(
         input_text=f"https://www.bilibili.com/video/{bvid}",
@@ -191,6 +192,7 @@ def create_ingest_job(
         options={
             "download_video": True,
             "transcribe_subtitles": transcribe_subtitles,
+            "force_refresh": force_refresh,
         },
         progress={"next_step": "media_processing_worker"},
         started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
@@ -223,6 +225,37 @@ def create_uploaded_asset(
         filename=filename,
         content_type="video/mp4" if filename.endswith(".mp4") else "audio/mp4",
         metadata_json={},
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def create_ready_subtitle_asset(
+    db: Session,
+    *,
+    job_id: uuid.UUID,
+    bvid: str,
+    cid: int | None,
+    source_asset_id: uuid.UUID,
+) -> MediaAsset:
+    asset = MediaAsset(
+        bvid=bvid,
+        cid=cid,
+        job_id=job_id,
+        asset_type="subtitle",
+        variant="openai-stt",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=f"media/subtitle/bvid={bvid}/cid={cid or 'unknown'}/previous.json",
+        filename="previous.openai-stt.json",
+        content_type="application/json",
+        metadata_json={
+            "transcription_source_asset_id": str(source_asset_id),
+            "transcription_model": "gpt-4o-transcribe-diarize",
+        },
+        ready_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
     )
     db.add(asset)
     db.commit()
@@ -268,6 +301,47 @@ def test_enqueue_subtitle_transcription_tasks_prefers_audio_stream(
         str(video_asset.id),
         str(audio_asset.id),
     ]
+
+
+def test_enqueue_subtitle_transcription_tasks_force_refresh_replaces_ready_asset(
+    db: Session,
+) -> None:
+    bvid = random_bvid()
+    create_video(db, bvid=bvid)
+    job = create_ingest_job(
+        db,
+        bvid=bvid,
+        force_refresh=True,
+    )
+    source_asset = create_uploaded_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        cid=212,
+        asset_type="source_archive",
+        filename="lesson.mp4",
+    )
+    previous_subtitle_asset = create_ready_subtitle_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        cid=212,
+        source_asset_id=source_asset.id,
+    )
+
+    queued_assets = enqueue_subtitle_transcription_tasks(
+        db,
+        job=job,
+        source_assets=[source_asset],
+        replace_existing_ready=bool(job.options.get("force_refresh")),
+    )
+
+    assert len(queued_assets) == 1
+    queued_asset = queued_assets[0]
+    assert queued_asset.id != previous_subtitle_asset.id
+    assert queued_asset.metadata_json["replaces_subtitle_asset_id"] == str(
+        previous_subtitle_asset.id
+    )
 
 
 def test_process_subtitle_transcription_task_uploads_json_and_replaces_subtitle_row(
@@ -350,7 +424,7 @@ def test_process_subtitle_transcription_task_uploads_json_and_replaces_subtitle_
     )
     assert uploaded_json_path.is_file()
     payload = json.loads(uploaded_json_path.read_text(encoding="utf-8"))
-    assert payload["model"] == "gpt-4o-transcribe-diarize"
+    assert payload["model"] == "whisper-1"
     assert payload["language"] == "zh"
     assert payload["temperature"] == 0.0
     assert payload["audio"]["format"] == "m4a"
@@ -531,3 +605,53 @@ def test_backfill_subtitle_transcription_tasks_respects_limit_and_skips_existing
     assert queued_assets[0].metadata_json["transcription_source_asset_id"] == str(
         second_source_asset.id
     )
+
+
+def test_backfill_subtitle_transcription_tasks_can_replace_ready_asset(
+    db: Session,
+) -> None:
+    bvid = random_bvid()
+    shared_cid = 808
+    create_video(db, bvid=bvid)
+    job = create_ingest_job(
+        db,
+        bvid=bvid,
+        transcribe_subtitles=False,
+    )
+    source_asset = create_uploaded_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        cid=shared_cid,
+        asset_type="source_archive",
+        filename="episode.mp4",
+    )
+    previous_subtitle_asset = create_ready_subtitle_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        cid=shared_cid,
+        source_asset_id=source_asset.id,
+    )
+
+    queued_assets = backfill_subtitle_transcription_tasks(
+        db,
+        bvid=bvid,
+        cid=shared_cid,
+        replace_existing_ready=True,
+    )
+    db.commit()
+
+    assert len(queued_assets) == 1
+    assert queued_assets[0].metadata_json["replaces_subtitle_asset_id"] == str(
+        previous_subtitle_asset.id
+    )
+
+    audit_event = db.exec(
+        select(AuditEvent).where(
+            AuditEvent.action == "subtitle_transcription.backfill_enqueued",
+            AuditEvent.resource_id == str(queued_assets[0].id),
+        )
+    ).first()
+    assert audit_event is not None
+    assert audit_event.payload["replaces_subtitle_asset_id"] == str(previous_subtitle_asset.id)

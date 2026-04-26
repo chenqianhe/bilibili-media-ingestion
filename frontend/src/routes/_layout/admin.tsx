@@ -60,25 +60,22 @@ function UsersTable() {
 function Admin() {
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Console</h1>
-          <p className="text-muted-foreground">
-            Manage user accounts, permissions, and authenticated Bilibili
-            access.
-          </p>
-        </div>
+      <div className="border-b pb-5">
+        <h1 className="text-2xl font-semibold tracking-tight">Admin Console</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Manage user accounts, permissions, and authenticated Bilibili access.
+        </p>
       </div>
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList>
+        <TabsList className="w-full sm:w-fit">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="bilibili-access">Bilibili Access</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Users</h2>
-              <p className="text-muted-foreground">
+              <h2 className="text-xl font-semibold tracking-tight">Users</h2>
+              <p className="text-sm text-muted-foreground">
                 Manage user accounts and permissions
               </p>
             </div>

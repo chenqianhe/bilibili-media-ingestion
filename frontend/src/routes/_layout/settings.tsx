@@ -35,15 +35,15 @@ function UserSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Settings</h1>
-        <p className="text-muted-foreground">
+      <div className="border-b pb-5">
+        <h1 className="text-2xl font-semibold tracking-tight">User Settings</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Manage your account settings and preferences
         </p>
       </div>
 
-      <Tabs defaultValue="my-profile">
-        <TabsList>
+      <Tabs defaultValue="my-profile" className="space-y-5">
+        <TabsList className="w-full sm:w-fit">
           {finalTabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
               {tab.title}
