@@ -4,6 +4,7 @@ x-backend-service: &backend-service
   build:
     context: .
     dockerfile: backend/Dockerfile
+    target: backend-runtime
   env_file:
     - path: .env
       required: true

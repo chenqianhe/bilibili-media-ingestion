@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
@@ -8,7 +12,8 @@ from app.core.config import settings
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
-    return f"{route.tags[0]}-{route.name}"
+    tag = route.tags[0] if route.tags else "default"
+    return f"{tag}-{route.name}"
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
@@ -31,3 +36,28 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+frontend_dist = Path(__file__).resolve().parent / "static"
+frontend_index = frontend_dist / "index.html"
+frontend_assets = frontend_dist / "assets"
+
+
+if frontend_index.is_file():
+    if frontend_assets.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=frontend_assets),
+            name="frontend-assets",
+        )
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str) -> FileResponse:
+        api_prefix = settings.API_V1_STR.strip("/")
+        if full_path == api_prefix or full_path.startswith(f"{api_prefix}/"):
+            raise HTTPException(status_code=404)
+
+        requested_path = (frontend_dist / full_path).resolve()
+        if requested_path.is_relative_to(frontend_dist) and requested_path.is_file():
+            return FileResponse(requested_path)
+
+        return FileResponse(frontend_index)

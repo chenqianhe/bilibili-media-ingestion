@@ -1,9 +1,31 @@
-FROM python:3.10
+# syntax=docker/dockerfile:1
+
+FROM oven/bun:1 AS frontend-build
+
+WORKDIR /app
+
+COPY package.json bun.lock /app/
+COPY scripts /app/scripts
+COPY frontend/package.json /app/frontend/
+
+WORKDIR /app/frontend
+
+RUN bun install --frozen-lockfile
+
+COPY frontend /app/frontend
+
+ARG VITE_API_URL=
+ENV VITE_API_URL=${VITE_API_URL}
+
+RUN bun run build
+
+
+FROM python:3.10-slim AS backend-runtime
 
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -47,3 +69,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 WORKDIR /app/backend/
 
 CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
+
+
+FROM backend-runtime AS app
+
+COPY --from=frontend-build /app/frontend/dist /app/backend/app/static
