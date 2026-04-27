@@ -20,6 +20,24 @@ from app.uploader.s3_multipart import S3MultipartObjectStorageClient
 logger = logging.getLogger(__name__)
 
 
+def _log_processed_subtitle_task(asset: MediaAsset) -> None:
+    if asset.status != "failed":
+        logger.info(
+            "Processed subtitle task %s with final status %s",
+            asset.id,
+            asset.status,
+        )
+        return
+
+    metadata_json = asset.metadata_json or {}
+    logger.error(
+        "Processed subtitle task %s with final status failed (error_code=%s, error_message=%s)",
+        asset.id,
+        metadata_json.get("error_code") or "unknown",
+        metadata_json.get("error_message") or "not recorded",
+    )
+
+
 class SubtitleTranscriptionWorker:
     def __init__(
         self,
@@ -63,11 +81,7 @@ class SubtitleTranscriptionWorker:
                 continue
 
             processed_count += 1
-            logger.info(
-                "Processed subtitle task %s with final status %s",
-                asset.id,
-                asset.status,
-            )
+            _log_processed_subtitle_task(asset)
 
         return processed_count
 
@@ -129,11 +143,7 @@ def main() -> int:
                 logger.info("No pending subtitle transcription tasks found")
                 return 0
 
-            logger.info(
-                "Processed subtitle task %s with final status %s",
-                asset.id,
-                asset.status,
-            )
+            _log_processed_subtitle_task(asset)
             return 0
 
         worker.run_forever(max_jobs=args.max_jobs)
