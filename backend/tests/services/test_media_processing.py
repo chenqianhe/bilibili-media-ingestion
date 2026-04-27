@@ -715,6 +715,119 @@ def test_process_media_processing_job_creates_proxy_and_hls_derivatives(
     assert len(processor.hls_calls) == 1
 
 
+def test_process_media_processing_job_uploads_hls_assets_without_reusing_existing_objects(
+    db: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "app.services.media_processing.settings.INGEST_TMP_DIR",
+        str(tmp_path),
+    )
+
+    storage_client = RecordingObjectStorageClient(root_dir=tmp_path / "remote")
+    processor = StaticMediaProcessor()
+    existing_bvid = random_bvid()
+    create_video(db, bvid=existing_bvid)
+
+    existing_segment = create_existing_ready_asset(
+        db,
+        bvid=existing_bvid,
+        storage_client=storage_client,
+        asset_type="hls_segment",
+        filename="existing.hls.segment_00000.ts",
+        content=b"hls-segment-binary",
+    )
+    existing_playlist = create_existing_ready_asset(
+        db,
+        bvid=existing_bvid,
+        storage_client=storage_client,
+        asset_type="hls_segment",
+        filename="existing.hls.stream.m3u8",
+        content=(
+            "\n".join(
+                [
+                    "#EXTM3U",
+                    "#EXT-X-TARGETDURATION:6",
+                    "#EXT-X-VERSION:3",
+                    "#EXT-X-PLAYLIST-TYPE:VOD",
+                    "#EXTINF:6.0,",
+                    "segment_00000.ts",
+                    "#EXT-X-ENDLIST",
+                    "",
+                ]
+            ).encode("utf-8")
+        ),
+    )
+    existing_master = create_existing_ready_asset(
+        db,
+        bvid=existing_bvid,
+        storage_client=storage_client,
+        asset_type="hls_master",
+        filename="existing.master.m3u8",
+        content=(
+            "\n".join(
+                [
+                    "#EXTM3U",
+                    "#EXT-X-VERSION:3",
+                    "#EXT-X-STREAM-INF:BANDWIDTH=1200000",
+                    "stream.m3u8",
+                    "",
+                ]
+            ).encode("utf-8")
+        ),
+    )
+
+    bvid = random_bvid()
+    create_video(db, bvid=bvid)
+    job = create_source_uploaded_job(
+        db,
+        bvid=bvid,
+        options={
+            "download_video": True,
+            "create_normalized_mp4": True,
+            "create_hls": True,
+        },
+    )
+    create_uploaded_source_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        storage_client=storage_client,
+        filename="source.mp4",
+        content=b"uploaded-source-archive",
+    )
+
+    processed_job = process_media_processing_job(
+        session=db,
+        job_id=job.id,
+        storage_client=storage_client,
+        processor=processor,
+    )
+
+    assert processed_job.status == "completed"
+    existing_keys = {
+        existing_segment.s3_key,
+        existing_playlist.s3_key,
+        existing_master.s3_key,
+    }
+    uploaded_locations = set(storage_client.uploaded)
+    hls_assets = [
+        asset
+        for asset in asset_list_for_job(db, job_id=job.id)
+        if asset.asset_type in {"hls_master", "hls_segment"}
+    ]
+
+    assert len(hls_assets) == 3
+    for asset in hls_assets:
+        assert asset.status == "ready"
+        assert asset.s3_key not in existing_keys
+        assert asset.s3_key is not None
+        assert f"bvid={bvid}" in asset.s3_key
+        assert asset.sha256 is None
+        assert isinstance(asset.metadata_json.get("derived_sha256"), str)
+        assert "reused_from_asset_id" not in asset.metadata_json
+        assert (asset.s3_bucket, asset.s3_key) in uploaded_locations
+
+
 def test_process_media_processing_job_handles_split_video_and_audio_sources(
     db: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

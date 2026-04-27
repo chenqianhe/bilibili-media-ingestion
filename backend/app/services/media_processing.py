@@ -315,6 +315,7 @@ def _persist_derivative_asset(
     uploaded_objects: list[tuple[str, str]],
     source_assets: list[MediaAsset],
     probe_with_processor: bool = True,
+    allow_reuse: bool = True,
     extra_metadata: dict[str, object] | None = None,
 ) -> MediaAsset:
     created_at = _now_utc()
@@ -333,10 +334,14 @@ def _persist_derivative_asset(
         extra_metadata=extra_metadata,
     )
 
-    existing_asset = _find_existing_ready_asset(
-        session,
-        asset_type=asset.asset_type,
-        sha256=sha256,
+    existing_asset = (
+        _find_existing_ready_asset(
+            session,
+            asset_type=asset.asset_type,
+            sha256=sha256,
+        )
+        if allow_reuse
+        else None
     )
     if existing_asset is not None:
         _mark_asset_as_reused(
@@ -347,6 +352,12 @@ def _persist_derivative_asset(
         )
         session.add(asset)
         return asset
+
+    if not allow_reuse:
+        metadata_json = dict(asset.metadata_json)
+        metadata_json["derived_sha256"] = sha256
+        asset.metadata_json = metadata_json
+        asset.sha256 = None
 
     if not asset.s3_bucket or not asset.s3_key:
         raise ValueError(
@@ -467,6 +478,7 @@ def _persist_hls_bundle(
             storage_client=storage_client,
             uploaded_objects=uploaded_objects,
             source_assets=source_assets,
+            allow_reuse=False,
             extra_metadata={
                 **hls_extra_metadata,
                 "hls_role": "media_segment",
@@ -496,6 +508,7 @@ def _persist_hls_bundle(
             uploaded_objects=uploaded_objects,
             source_assets=source_assets,
             probe_with_processor=False,
+            allow_reuse=False,
             extra_metadata={
                 **hls_extra_metadata,
                 "hls_role": "media_playlist",
@@ -523,6 +536,7 @@ def _persist_hls_bundle(
         uploaded_objects=uploaded_objects,
         source_assets=source_assets,
         probe_with_processor=False,
+        allow_reuse=False,
         extra_metadata={
             **hls_extra_metadata,
             "hls_role": "master_playlist",

@@ -27,6 +27,7 @@ from app.services.signed_urls import (
     verify_media_download_token,
     verify_media_playback_token,
 )
+from app.uploader.base import ObjectStorageDownloadError
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -98,11 +99,18 @@ def _download_asset_to_temp(
     )
     filename = asset.filename or f"{asset.id}{Path(asset.s3_key).suffix}"
     local_path = temp_dir / filename
-    storage_client.download_file(
-        bucket=asset.s3_bucket,
-        key=asset.s3_key,
-        local_path=local_path,
-    )
+    try:
+        storage_client.download_file(
+            bucket=asset.s3_bucket,
+            key=asset.s3_key,
+            local_path=local_path,
+        )
+    except ObjectStorageDownloadError as exc:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Media object could not be downloaded: {exc}",
+        ) from exc
     return temp_dir, local_path
 
 

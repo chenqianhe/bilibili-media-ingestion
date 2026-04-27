@@ -117,16 +117,30 @@ def _load_video_assets(*, session: SessionDep, bvid: str) -> list[MediaAsset]:
 
 def _delete_video_storage_objects(
     *,
+    session: SessionDep,
     storage_client: ObjectStorageClientDep,
     assets: list[MediaAsset],
 ) -> list[dict[str, str]]:
     deleted_objects: list[dict[str, str]] = []
     seen_locations: set[tuple[str, str]] = set()
+    deleted_asset_ids = {asset.id for asset in assets}
     for asset in assets:
         if not asset.s3_bucket or not asset.s3_key:
             continue
         location = (asset.s3_bucket, asset.s3_key)
         if location in seen_locations:
+            continue
+        still_referenced = session.exec(
+            select(MediaAsset.id)
+            .where(
+                MediaAsset.s3_bucket == asset.s3_bucket,
+                MediaAsset.s3_key == asset.s3_key,
+                ~MediaAsset.id.in_(deleted_asset_ids),
+            )
+            .limit(1)
+        ).first()
+        if still_referenced is not None:
+            seen_locations.add(location)
             continue
         try:
             storage_client.delete_object(
@@ -587,6 +601,7 @@ def delete_video(
     video = _require_video(session=session, bvid=bvid)
     assets = _load_video_assets(session=session, bvid=bvid)
     deleted_objects = _delete_video_storage_objects(
+        session=session,
         storage_client=storage_client,
         assets=assets,
     )

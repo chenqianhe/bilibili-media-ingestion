@@ -10,7 +10,7 @@ from app.api.deps import get_object_storage_client
 from app.core.config import settings
 from app.ingest_models import MediaAsset, Video
 from app.main import app
-from app.uploader.base import ObjectStorageResult
+from app.uploader.base import ObjectStorageDownloadError, ObjectStorageResult
 from tests.utils.utils import random_bvid
 
 
@@ -47,6 +47,17 @@ class RecordingDownloadStorageClient:
 
     def delete_object(self, **kwargs: object) -> None:
         raise NotImplementedError
+
+
+class FailingDownloadStorageClient(RecordingDownloadStorageClient):
+    def download_file(
+        self,
+        *,
+        bucket: str,
+        key: str,
+        local_path: Path,
+    ) -> ObjectStorageResult:
+        raise ObjectStorageDownloadError(f"Object storage download failed for {bucket}/{key}")
 
 
 def test_playback_url_streams_binary_assets_with_range_support(
@@ -99,6 +110,48 @@ def test_playback_url_streams_binary_assets_with_range_support(
         assert playback_response.content == payload[:5]
         assert playback_response.headers["content-range"] == f"bytes 0-4/{len(payload)}"
         assert playback_response.headers["content-type"].startswith("video/mp4")
+    finally:
+        app.dependency_overrides.pop(get_object_storage_client, None)
+
+
+def test_playback_url_returns_bad_gateway_when_storage_object_is_missing(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    tmp_path: Path,
+) -> None:
+    bvid = random_bvid()
+    db.add(Video(bvid=bvid, title=bvid))
+    db.commit()
+
+    asset = MediaAsset(
+        bvid=bvid,
+        cid=123,
+        asset_type="proxy_mp4",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=f"media/proxy/bvid={bvid}/cid=123/asset_id=test/proxy.mp4",
+        filename="proxy.mp4",
+        content_type="video/mp4",
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+
+    storage_client = FailingDownloadStorageClient(root_dir=tmp_path / "remote")
+    app.dependency_overrides[get_object_storage_client] = lambda: storage_client
+    try:
+        playback_url_response = client.post(
+            f"{settings.API_V1_STR}/media/assets/{asset.id}/playback-url",
+            headers=superuser_token_headers,
+            json={"expires_in": 900},
+        )
+        assert playback_url_response.status_code == 200
+
+        parsed = urlparse(playback_url_response.json()["url"])
+        playback_response = client.get(f"{parsed.path}?{parsed.query}")
+        assert playback_response.status_code == 502
+        assert "Media object could not be downloaded" in playback_response.json()["detail"]
     finally:
         app.dependency_overrides.pop(get_object_storage_client, None)
 

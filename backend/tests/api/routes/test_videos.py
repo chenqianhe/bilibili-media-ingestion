@@ -1147,6 +1147,74 @@ def test_delete_video_removes_children_and_storage_objects(
     }
 
 
+def test_delete_video_keeps_storage_objects_referenced_by_other_assets(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    deleted_bvid = random_bvid()
+    kept_bvid = random_bvid()
+    shared_key = "media/proxy/shared/proxy.mp4"
+    unique_key = f"media/proxy/bvid={deleted_bvid}/cid=100/asset_id=unique/proxy.mp4"
+
+    db.add(Video(bvid=deleted_bvid, title="Delete shared reference"))
+    db.add(Video(bvid=kept_bvid, title="Keep shared reference"))
+    db.commit()
+
+    deleted_shared_asset = MediaAsset(
+        bvid=deleted_bvid,
+        cid=100,
+        asset_type="proxy_mp4",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=shared_key,
+        filename="proxy.mp4",
+        content_type="video/mp4",
+    )
+    kept_shared_asset = MediaAsset(
+        bvid=kept_bvid,
+        cid=100,
+        asset_type="proxy_mp4",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=shared_key,
+        filename="proxy.mp4",
+        content_type="video/mp4",
+    )
+    unique_asset = MediaAsset(
+        bvid=deleted_bvid,
+        cid=100,
+        asset_type="thumbnail",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=unique_key,
+        filename="thumbnail.jpg",
+        content_type="image/jpeg",
+    )
+    db.add(deleted_shared_asset)
+    db.add(kept_shared_asset)
+    db.add(unique_asset)
+    db.commit()
+    db.refresh(kept_shared_asset)
+
+    storage_client = RecordingDeleteStorageClient()
+    app.dependency_overrides[get_object_storage_client] = lambda: storage_client
+    try:
+        response = client.delete(
+            f"{settings.API_V1_STR}/videos/{deleted_bvid}",
+            headers=superuser_token_headers,
+        )
+    finally:
+        app.dependency_overrides.pop(get_object_storage_client, None)
+
+    assert response.status_code == 200
+    assert db.get(Video, deleted_bvid) is None
+    assert db.get(Video, kept_bvid) is not None
+    assert db.get(MediaAsset, kept_shared_asset.id) is not None
+    assert ("bili-media-dev", shared_key) not in storage_client.deleted
+    assert storage_client.deleted == [("bili-media-dev", unique_key)]
+
+
 def test_delete_video_requires_superuser(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
