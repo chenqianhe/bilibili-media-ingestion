@@ -483,6 +483,9 @@ uv run python -m app.workers.subtitle_backfill --bvid BV1xx411c7mD --replace-exi
 - `YT_DLP_BINARY`
 - `FFMPEG_BINARY`
 - `FFPROBE_BINARY`
+- `FFMPEG_VIDEO_ACCELERATOR`: 默认 `cpu`，可设为 `videotoolbox`（macOS）或
+  `nvenc`（NVIDIA ffmpeg 构建）启用硬件 H.264 编码；容器部署启用 `nvenc`
+  时还需要给 worker 配好 NVIDIA runtime / GPU device。
 
 ### 邮件和观测
 

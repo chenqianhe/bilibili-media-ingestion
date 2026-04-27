@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     YT_DLP_IMPERSONATE: str | None = None
     FFMPEG_BINARY: str = "ffmpeg"
     FFPROBE_BINARY: str = "ffprobe"
+    FFMPEG_VIDEO_ACCELERATOR: str = "cpu"
     OPENAI_API_KEY: str | None = None
     OPENAI_API_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_TRANSCRIPTION_MODEL: str = "whisper-1"

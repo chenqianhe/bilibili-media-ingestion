@@ -17,6 +17,7 @@ from app.processor.base import (
 )
 
 _MP4_CONTAINER_ALIASES = {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}
+_SUPPORTED_VIDEO_ACCELERATORS = {"cpu", "none", "videotoolbox", "nvenc"}
 
 
 def _coerce_float(value: Any) -> float | None:
@@ -95,9 +96,13 @@ class FFmpegMediaProcessor:
         *,
         ffmpeg_binary: str | None = None,
         ffprobe_binary: str | None = None,
+        video_accelerator: str | None = None,
     ) -> None:
         self._ffmpeg_binary = ffmpeg_binary or settings.FFMPEG_BINARY
         self._ffprobe_binary = ffprobe_binary or settings.FFPROBE_BINARY
+        self._video_accelerator = self._normalize_video_accelerator(
+            video_accelerator or settings.FFMPEG_VIDEO_ACCELERATOR
+        )
 
     def probe(self, *, input_path: Path) -> MediaProbeResult:
         self._ensure_binary_available(self._ffprobe_binary, label="ffprobe")
@@ -231,8 +236,11 @@ class FFmpegMediaProcessor:
                 "force_divisible_by=2"
             ),
             preset="veryfast",
+            video_bitrate="2500k",
             audio_bitrate="128k",
-            extra_video_args=["-crf", "23", "-maxrate", "2500k", "-bufsize", "5000k"],
+            crf="23",
+            maxrate="2500k",
+            bufsize="5000k",
         )
 
         self._run(command, error_cls=MediaTranscodeError)
@@ -257,7 +265,9 @@ class FFmpegMediaProcessor:
             include_audio_from_video_input=include_audio_from_video_input,
             video_filter="scale=trunc(iw/2)*2:trunc(ih/2)*2",
             preset="fast",
+            video_bitrate="5000k",
             audio_bitrate="192k",
+            crf="23",
         )
 
         self._run(command, error_cls=MediaTranscodeError)
@@ -313,17 +323,15 @@ class FFmpegMediaProcessor:
                         "force_divisible_by=2"
                     ),
                     "-c:v",
-                    "libx264",
-                    "-preset",
-                    "veryfast",
+                    *self._video_encoding_args(
+                        preset="veryfast",
+                        video_bitrate="2500k",
+                        crf="23",
+                        maxrate="2500k",
+                        bufsize="5000k",
+                    ),
                     "-pix_fmt",
                     "yuv420p",
-                    "-crf",
-                    "23",
-                    "-maxrate",
-                    "2500k",
-                    "-bufsize",
-                    "5000k",
                 ]
             )
             if has_audio_output:
@@ -400,6 +408,63 @@ class FFmpegMediaProcessor:
         if not output_path.is_file() or output_path.stat().st_size <= 0:
             raise MediaResultError("ffmpeg did not create a thumbnail output")
 
+    def _normalize_video_accelerator(self, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in _SUPPORTED_VIDEO_ACCELERATORS:
+            supported = ", ".join(sorted(_SUPPORTED_VIDEO_ACCELERATORS))
+            raise ValueError(
+                "Unsupported FFMPEG_VIDEO_ACCELERATOR "
+                f"{value!r}; expected one of: {supported}"
+            )
+        return "cpu" if normalized == "none" else normalized
+
+    def _video_encoding_args(
+        self,
+        *,
+        preset: str,
+        video_bitrate: str,
+        crf: str,
+        maxrate: str | None = None,
+        bufsize: str | None = None,
+    ) -> list[str]:
+        if self._video_accelerator == "videotoolbox":
+            return [
+                "h264_videotoolbox",
+                "-b:v",
+                video_bitrate,
+            ]
+
+        if self._video_accelerator == "nvenc":
+            args = [
+                "h264_nvenc",
+                "-preset",
+                "fast",
+                "-rc",
+                "vbr",
+                "-cq:v",
+                crf,
+                "-b:v",
+                video_bitrate,
+            ]
+            if maxrate is not None:
+                args.extend(["-maxrate", maxrate])
+            if bufsize is not None:
+                args.extend(["-bufsize", bufsize])
+            return args
+
+        args = [
+            "libx264",
+            "-preset",
+            preset,
+            "-crf",
+            crf,
+        ]
+        if maxrate is not None:
+            args.extend(["-maxrate", maxrate])
+        if bufsize is not None:
+            args.extend(["-bufsize", bufsize])
+        return args
+
     def _build_mp4_command(
         self,
         *,
@@ -409,8 +474,11 @@ class FFmpegMediaProcessor:
         include_audio_from_video_input: bool,
         video_filter: str,
         preset: str,
+        video_bitrate: str,
         audio_bitrate: str,
-        extra_video_args: list[str] | None = None,
+        crf: str,
+        maxrate: str | None = None,
+        bufsize: str | None = None,
     ) -> list[str]:
         command = [
             self._ffmpeg_binary,
@@ -435,15 +503,17 @@ class FFmpegMediaProcessor:
                 "-vf",
                 video_filter,
                 "-c:v",
-                "libx264",
-                "-preset",
-                preset,
+                *self._video_encoding_args(
+                    preset=preset,
+                    video_bitrate=video_bitrate,
+                    crf=crf,
+                    maxrate=maxrate,
+                    bufsize=bufsize,
+                ),
                 "-pix_fmt",
                 "yuv420p",
             ]
         )
-        if extra_video_args:
-            command.extend(extra_video_args)
         command.extend(["-movflags", "+faststart"])
         if audio_input_path is not None or include_audio_from_video_input:
             command.extend(["-c:a", "aac", "-b:a", audio_bitrate, "-shortest"])

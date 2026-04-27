@@ -190,7 +190,11 @@ production secrets.
 Variables such as the Bilibili request throttling knobs, worker poll/stale
 timeouts, and binary paths (`YT_DLP_BINARY`, `FFMPEG_BINARY`, `FFPROBE_BINARY`)
 already have code defaults and normally do not need to be overridden unless
-operations tuning is required.
+operations tuning is required. Media processing also supports
+`FFMPEG_VIDEO_ACCELERATOR=videotoolbox` on macOS or `nvenc` on NVIDIA ffmpeg
+builds; the default `cpu` keeps the existing `libx264` behavior. Containerized
+`nvenc` deployments also need NVIDIA runtime / GPU device access for the
+processing worker.
 
 Important deployment caveat: the current `compose.yml` still hardcodes
 `POSTGRES_SERVER=db` for the backend, prestart job, and workers so local

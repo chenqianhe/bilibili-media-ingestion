@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.ingest_models import IngestJob, MediaAsset, Video
 from app.processor.base import MediaProbeResult
+from app.processor.ffmpeg import FFmpegMediaProcessor
 from app.services.media_processing import process_media_processing_job
 from app.services.storage_keys import build_asset_storage_key
 from app.uploader.base import (
@@ -19,6 +20,68 @@ from app.uploader.base import (
 )
 from app.workers.media_processing import process_next_media_processing_job
 from tests.utils.utils import random_bvid
+
+
+def build_test_mp4_command(*, video_accelerator: str) -> list[str]:
+    processor = FFmpegMediaProcessor(
+        ffmpeg_binary="ffmpeg",
+        ffprobe_binary="ffprobe",
+        video_accelerator=video_accelerator,
+    )
+    return processor._build_mp4_command(
+        video_input_path=Path("source.mp4"),
+        audio_input_path=None,
+        output_path=Path("output.mp4"),
+        include_audio_from_video_input=True,
+        video_filter="scale=1280:720:force_original_aspect_ratio=decrease",
+        preset="veryfast",
+        video_bitrate="2500k",
+        audio_bitrate="128k",
+        crf="23",
+        maxrate="2500k",
+        bufsize="5000k",
+    )
+
+
+def test_ffmpeg_media_processor_defaults_to_cpu_encoder() -> None:
+    command = build_test_mp4_command(video_accelerator="cpu")
+
+    assert command[command.index("-c:v") + 1] == "libx264"
+    assert command[command.index("-preset") + 1] == "veryfast"
+    assert command[command.index("-crf") + 1] == "23"
+    assert command[command.index("-maxrate") + 1] == "2500k"
+    assert command[command.index("-bufsize") + 1] == "5000k"
+
+
+def test_ffmpeg_media_processor_can_use_videotoolbox_encoder() -> None:
+    command = build_test_mp4_command(video_accelerator="videotoolbox")
+
+    assert command[command.index("-c:v") + 1] == "h264_videotoolbox"
+    assert command[command.index("-b:v") + 1] == "2500k"
+    assert "-crf" not in command
+    assert "-maxrate" not in command
+    assert "-bufsize" not in command
+
+
+def test_ffmpeg_media_processor_can_use_nvenc_encoder() -> None:
+    command = build_test_mp4_command(video_accelerator="nvenc")
+
+    assert command[command.index("-c:v") + 1] == "h264_nvenc"
+    assert command[command.index("-preset") + 1] == "fast"
+    assert command[command.index("-rc") + 1] == "vbr"
+    assert command[command.index("-cq:v") + 1] == "23"
+    assert command[command.index("-b:v") + 1] == "2500k"
+    assert command[command.index("-maxrate") + 1] == "2500k"
+    assert command[command.index("-bufsize") + 1] == "5000k"
+
+
+def test_ffmpeg_media_processor_rejects_unknown_video_accelerator() -> None:
+    with pytest.raises(ValueError, match="Unsupported FFMPEG_VIDEO_ACCELERATOR"):
+        FFmpegMediaProcessor(
+            ffmpeg_binary="ffmpeg",
+            ffprobe_binary="ffprobe",
+            video_accelerator="magic",
+        )
 
 
 class RecordingObjectStorageClient:
