@@ -3,6 +3,7 @@
 .env.local
 .env.test.local
 frontend/.env.local
+truenas-compose.local.yml
 backend/.secrets/*
 !backend/.secrets/.gitkeep
 node_modules/
