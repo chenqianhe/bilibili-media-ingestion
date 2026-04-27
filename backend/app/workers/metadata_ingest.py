@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -19,6 +20,7 @@ from app.services.bilibili_access import build_bilibili_access_runtime
 from app.services.metadata_ingest import process_metadata_ingest_job
 from app.uploader.base import ObjectStorageClient, ObjectStorageConfigurationError
 from app.uploader.s3_multipart import S3MultipartObjectStorageClient
+from app.workers.resilience import sleep_after_database_error
 from app.workers.stale_reclaim import (
     is_stale_job,
     mark_job_reclaimed,
@@ -156,7 +158,16 @@ class MetadataIngestWorker:
     def run_forever(self, *, max_jobs: int | None = None) -> int:
         processed_count = 0
         while max_jobs is None or processed_count < max_jobs:
-            job = self.run_once()
+            try:
+                job = self.run_once()
+            except OperationalError:
+                sleep_after_database_error(
+                    logger=logger,
+                    worker_name="Metadata",
+                    retry_seconds=self._poll_interval_seconds,
+                    sleep=self._sleep,
+                )
+                continue
             if job is None:
                 self._sleep(self._poll_interval_seconds)
                 continue

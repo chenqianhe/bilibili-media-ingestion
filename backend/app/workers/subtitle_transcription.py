@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -16,6 +17,7 @@ from app.transcription.ffmpeg_audio import FFmpegSubtitleAudioPreparer
 from app.transcription.openai_stt import OpenAISubtitleTranscriber
 from app.uploader.base import ObjectStorageClient
 from app.uploader.s3_multipart import S3MultipartObjectStorageClient
+from app.workers.resilience import sleep_after_database_error
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +77,16 @@ class SubtitleTranscriptionWorker:
     def run_forever(self, *, max_jobs: int | None = None) -> int:
         processed_count = 0
         while max_jobs is None or processed_count < max_jobs:
-            asset = self.run_once()
+            try:
+                asset = self.run_once()
+            except OperationalError:
+                sleep_after_database_error(
+                    logger=logger,
+                    worker_name="Subtitle transcription",
+                    retry_seconds=self._poll_interval_seconds,
+                    sleep=self._sleep,
+                )
+                continue
             if asset is None:
                 self._sleep(self._poll_interval_seconds)
                 continue

@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -14,6 +15,7 @@ from app.downloader.yt_dlp_adapter import YtDlpDownloaderAdapter
 from app.ingest_models import IngestJob
 from app.services.bilibili_access import build_bilibili_access_runtime
 from app.services.download_ingest import process_download_ingest_job
+from app.workers.resilience import sleep_after_database_error
 from app.workers.stale_reclaim import (
     is_stale_job,
     mark_job_reclaimed,
@@ -91,6 +93,7 @@ class DownloadIngestWorker:
         session_factory: Callable[[], Session] | None = None,
         poll_interval_seconds: float | None = None,
         stale_after_seconds: float | None = None,
+        sleep: Callable[[float], None] | None = None,
     ) -> None:
         self._session_factory = session_factory or (lambda: Session(engine))
         self._poll_interval_seconds = (
@@ -99,6 +102,7 @@ class DownloadIngestWorker:
         self._stale_after_seconds = (
             stale_after_seconds or settings.DOWNLOAD_WORKER_STALE_AFTER_SECONDS
         )
+        self._sleep = sleep or time.sleep
 
     def run_once(self) -> IngestJob | None:
         with self._session_factory() as session:
@@ -124,9 +128,18 @@ class DownloadIngestWorker:
     def run_forever(self, *, max_jobs: int | None = None) -> int:
         processed_count = 0
         while max_jobs is None or processed_count < max_jobs:
-            job = self.run_once()
+            try:
+                job = self.run_once()
+            except OperationalError:
+                sleep_after_database_error(
+                    logger=logger,
+                    worker_name="Download",
+                    retry_seconds=self._poll_interval_seconds,
+                    sleep=self._sleep,
+                )
+                continue
             if job is None:
-                time.sleep(self._poll_interval_seconds)
+                self._sleep(self._poll_interval_seconds)
                 continue
 
             processed_count += 1

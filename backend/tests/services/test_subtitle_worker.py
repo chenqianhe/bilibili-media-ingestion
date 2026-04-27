@@ -5,6 +5,7 @@ import uuid
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from app.workers.subtitle_transcription import SubtitleTranscriptionWorker
 
@@ -84,3 +85,34 @@ def test_subtitle_worker_logs_error_details_for_failed_task(
     assert "final status failed" in caplog.text
     assert "error_code=subtitle_transcription_execution_failed" in caplog.text
     assert "error_message=OpenAI transcription request failed" in caplog.text
+
+
+def test_subtitle_worker_retries_after_database_disconnect() -> None:
+    sleeps: list[float] = []
+    asset = SimpleNamespace(id=uuid.uuid4(), status="ready")
+    attempts = iter(
+        [
+            OperationalError("select 1", {}, Exception("database disconnected")),
+            asset,
+        ]
+    )
+    worker = SubtitleTranscriptionWorker(
+        storage_client=object(),
+        audio_preparer=object(),
+        transcriber=object(),
+        poll_interval_seconds=2.0,
+        sleep=sleeps.append,
+    )
+
+    def run_once() -> object:
+        result = next(attempts)
+        if isinstance(result, OperationalError):
+            raise result
+        return result
+
+    worker.run_once = run_once  # type: ignore[method-assign]
+
+    processed_count = worker.run_forever(max_jobs=1)
+
+    assert processed_count == 1
+    assert sleeps == [2.0]
