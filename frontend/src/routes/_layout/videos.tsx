@@ -90,6 +90,11 @@ const metricGridClass =
   "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))]"
 const imageGridClass =
   "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]"
+const subtitleSourceAssetTypes = new Set([
+  "source_archive",
+  "source_video_stream",
+  "source_audio_stream",
+])
 
 export const Route = createFileRoute("/_layout/videos")({
   validateSearch: (search) => videoSearchSchema.parse(search),
@@ -700,6 +705,33 @@ function VideosPage() {
     },
     onError: handleError.bind(showErrorToast),
   })
+  const generateSubtitlesMutation = useMutation({
+    mutationFn: () =>
+      IngestionApi.createSubtitleTranscriptionTasks(selectedBvid ?? "", {}),
+    onSuccess: (response) => {
+      const queuedCount = response.assets.length
+      if (queuedCount > 0) {
+        showSuccessToast(
+          `Queued ${formatCount(queuedCount)} subtitle task${queuedCount === 1 ? "" : "s"} for ${response.bvid}.`,
+        )
+      } else {
+        showSuccessToast(
+          `No new subtitle tasks were queued for ${response.bvid}.`,
+        )
+      }
+      queryClient.invalidateQueries({
+        queryKey: ["video-assets", response.bvid],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["video-subtitles", response.bvid],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["ingest-jobs", response.bvid],
+      })
+      queryClient.invalidateQueries({ queryKey: ["ingest-job-detail"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
   const deleteVideoMutation = useMutation({
     mutationFn: (bvid: string) => IngestionApi.deleteVideo(bvid),
     onError: handleError.bind(showErrorToast),
@@ -717,6 +749,11 @@ function VideosPage() {
   const playbackAsset =
     assets.find((asset) => asset.asset_type === "proxy_mp4") ??
     assets.find((asset) => asset.asset_type === "normalized_mp4")
+  const hasSubtitleSourceAssets = assets.some(
+    (asset) =>
+      subtitleSourceAssetTypes.has(asset.asset_type) &&
+      ["uploaded", "ready"].includes(asset.status),
+  )
 
   const commentFiltersActive =
     commentRootValue !== undefined || commentParentValue !== undefined
@@ -1777,15 +1814,29 @@ function VideosPage() {
                   <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                     <Card className="border-border/70 bg-card/90">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                          <Captions className="size-4 text-primary" />
-                          Subtitle Coverage
-                        </CardTitle>
-                        <CardDescription>
-                          Subtitle rows are stored per track. This summary shows
-                          track count and language coverage from the latest
-                          crawl that reported subtitle progress.
-                        </CardDescription>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              <Captions className="size-4 text-primary" />
+                              Subtitle Coverage
+                            </CardTitle>
+                            <CardDescription>
+                              Subtitle rows are stored per track. This summary
+                              shows track count and language coverage from the
+                              latest crawl that reported subtitle progress.
+                            </CardDescription>
+                          </div>
+                          <LoadingButton
+                            className="w-full sm:w-auto"
+                            disabled={!selectedBvid || !hasSubtitleSourceAssets}
+                            loading={generateSubtitlesMutation.isPending}
+                            size="sm"
+                            onClick={() => generateSubtitlesMutation.mutate()}
+                          >
+                            <Captions className="size-4" />
+                            Generate subtitles
+                          </LoadingButton>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         {subtitleCompleteness ? (

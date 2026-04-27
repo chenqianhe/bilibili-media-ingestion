@@ -1242,3 +1242,57 @@ def test_read_video_subtitles_supports_filters(
     }
     assert payload["subtitles"][0]["lang"] == "en"
     assert payload["subtitles"][0]["cid"] == 202
+
+
+def test_create_video_subtitle_transcription_tasks_queues_source_assets(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    bvid = random_bvid()
+    db.add(Video(bvid=bvid, title=bvid))
+    db.commit()
+
+    source_asset = MediaAsset(
+        bvid=bvid,
+        cid=202,
+        asset_type="source_archive",
+        status="ready",
+        s3_bucket="bili-media-dev",
+        s3_key=f"media/source/bvid={bvid}/cid=202/source.mp4",
+        filename="source.mp4",
+        content_type="video/mp4",
+    )
+    db.add(source_asset)
+    db.commit()
+
+    response = client.post(
+        f"{settings.API_V1_STR}/videos/{bvid}/subtitles/transcriptions",
+        headers=superuser_token_headers,
+        json={"cid": 202},
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["bvid"] == bvid
+    assert len(payload["assets"]) == 1
+    queued_asset = payload["assets"][0]
+    assert queued_asset["asset_type"] == "subtitle"
+    assert queued_asset["variant"] == "openai-stt"
+    assert queued_asset["status"] == "pending"
+    assert queued_asset["cid"] == 202
+
+    stored_asset = db.get(MediaAsset, queued_asset["asset_id"])
+    assert stored_asset is not None
+    assert stored_asset.metadata_json["transcription_source_asset_id"] == str(
+        source_asset.id
+    )
+    assert stored_asset.s3_key is not None
+
+    audit_event = db.exec(
+        select(AuditEvent).where(
+            AuditEvent.action == "subtitle_transcription.backfill_enqueued",
+            AuditEvent.resource_id == str(stored_asset.id),
+        )
+    ).first()
+    assert audit_event is not None

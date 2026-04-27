@@ -437,6 +437,12 @@ class VideoAssetsPublic(SQLModel):
     assets: list[MediaAssetPublic]
 
 
+class SubtitleTranscriptionRequest(SQLModel):
+    cid: int | None = Field(default=None, ge=1)
+    limit: int | None = Field(default=None, ge=1, le=200)
+    replace_existing_ready: bool = False
+
+
 class VideoCommentImagePublic(SQLModel):
     source_url: str | None = None
     width: int | None = None

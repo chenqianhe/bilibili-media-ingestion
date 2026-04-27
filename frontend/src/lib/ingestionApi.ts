@@ -97,6 +97,12 @@ export type VideoAssetsResponse = {
   assets: MediaAssetSummary[]
 }
 
+export type SubtitleTranscriptionRequest = {
+  cid?: number | null
+  limit?: number | null
+  replace_existing_ready?: boolean
+}
+
 export type VideoCommentImage = {
   source_url?: string | null
   width?: number | null
@@ -409,6 +415,17 @@ export const IngestionApi = {
       url: "/api/v1/videos/{bvid}/subtitles",
       path: { bvid },
       query: params,
+    }),
+  createSubtitleTranscriptionTasks: (
+    bvid: string,
+    payload: SubtitleTranscriptionRequest,
+  ) =>
+    request<VideoAssetsResponse>(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/videos/{bvid}/subtitles/transcriptions",
+      path: { bvid },
+      body: payload,
+      mediaType: "application/json",
     }),
   createPlaybackUrl: (assetId: string, expiresIn = 900) =>
     request<SignedUrlResponse>(OpenAPI, {

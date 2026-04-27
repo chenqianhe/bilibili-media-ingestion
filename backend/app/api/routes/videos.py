@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlmodel import delete, func, select
 
@@ -18,6 +18,7 @@ from app.ingest_models import (
     IngestJob,
     MediaAsset,
     MediaAssetPublic,
+    SubtitleTranscriptionRequest,
     Video,
     VideoAssetsPublic,
     VideoComment,
@@ -36,8 +37,8 @@ from app.ingest_models import (
     VideoDanmakuPageCoveragePublic,
     VideoDetailPublic,
     VideoPage,
-    VideoStatSnapshot,
     VideosPublic,
+    VideoStatSnapshot,
     VideoSubtitle,
     VideoSubtitlePublic,
     VideoSubtitlesCompletenessPublic,
@@ -47,6 +48,7 @@ from app.ingest_models import (
 from app.models import Message
 from app.services.audit import record_audit_event
 from app.services.signed_urls import build_media_playback_url
+from app.services.subtitle_transcription import backfill_subtitle_transcription_tasks
 
 router = APIRouter(prefix="/videos", tags=["videos"])
 
@@ -969,4 +971,36 @@ def read_video_subtitles(
             )
             for subtitle in subtitles
         ],
+    )
+
+
+@router.post(
+    "/{bvid}/subtitles/transcriptions",
+    response_model=VideoAssetsPublic,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_video_subtitle_transcription_tasks(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    bvid: str,
+    payload: SubtitleTranscriptionRequest,
+) -> Any:
+    del current_user
+    _require_video(session=session, bvid=bvid)
+
+    queued_assets = backfill_subtitle_transcription_tasks(
+        session,
+        bvid=bvid,
+        cid=payload.cid,
+        limit=payload.limit,
+        replace_existing_ready=payload.replace_existing_ready,
+    )
+    session.commit()
+    for asset in queued_assets:
+        session.refresh(asset)
+
+    return VideoAssetsPublic(
+        bvid=bvid,
+        assets=[_to_media_asset_public(asset) for asset in queued_assets],
     )
