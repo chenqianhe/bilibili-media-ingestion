@@ -1,0 +1,88 @@
+name: "${STACK_NAME:-bili-media-ingestion-service}"
+
+x-backend-service: &backend-service
+  image: "${DOCKER_IMAGE_BACKEND:-backend}:${TAG:-latest}"
+  restart: unless-stopped
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    target: backend-runtime
+  env_file:
+    - path: .env
+      required: true
+    - path: .env.local
+      required: false
+  volumes:
+    - ingest-tmp:${INGEST_TMP_DIR:-/tmp/bili-ingest}
+
+x-worker-depends: &worker-depends
+  prestart:
+    condition: service_completed_successfully
+
+services:
+  prestart:
+    <<: *backend-service
+    restart: "no"
+    command: bash scripts/prestart.sh
+
+  backend:
+    <<: *backend-service
+    depends_on: *worker-depends
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  metadata-worker:
+    <<: *backend-service
+    depends_on: *worker-depends
+    command:
+      - python
+      - -m
+      - app.workers.metadata_ingest
+
+  download-worker:
+    <<: *backend-service
+    depends_on: *worker-depends
+    command:
+      - python
+      - -m
+      - app.workers.download_ingest
+
+  upload-worker:
+    <<: *backend-service
+    depends_on: *worker-depends
+    command:
+      - python
+      - -m
+      - app.workers.upload_ingest
+
+  processing-worker:
+    <<: *backend-service
+    depends_on: *worker-depends
+    command:
+      - python
+      - -m
+      - app.workers.media_processing
+
+  subtitle-worker:
+    <<: *backend-service
+    depends_on: *worker-depends
+    command:
+      - python
+      - -m
+      - app.workers.subtitle_transcription
+
+  frontend:
+    image: "${DOCKER_IMAGE_FRONTEND:-frontend}:${TAG:-latest}"
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+        - NODE_ENV=${NODE_ENV:-production}
+
+volumes:
+  ingest-tmp:

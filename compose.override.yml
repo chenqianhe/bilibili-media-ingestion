@@ -1,0 +1,109 @@
+x-backend-watch: &backend-watch
+  watch:
+    - path: ./backend
+      action: sync
+      target: /app/backend
+      ignore:
+        - ./backend/.venv
+        - .venv
+    - path: ./backend/pyproject.toml
+      action: rebuild
+
+x-local-backend-env: &local-backend-env
+  SMTP_HOST: "mailcatcher"
+  SMTP_PORT: "1025"
+  SMTP_TLS: "false"
+  EMAILS_FROM_EMAIL: "noreply@example.com"
+  BACKEND_PUBLIC_URL: "${BACKEND_PUBLIC_URL:-http://localhost:8000}"
+  YT_DLP_BINARY: "yt-dlp"
+
+services:
+  prestart:
+    restart: "no"
+    environment: *local-backend-env
+
+  backend:
+    restart: "no"
+    ports:
+      - "8000:8000"
+    command:
+      - fastapi
+      - run
+      - --reload
+      - app/main.py
+    develop: *backend-watch
+    volumes:
+      - ./backend/htmlcov:/app/backend/htmlcov
+    environment: *local-backend-env
+
+  metadata-worker:
+    restart: "no"
+    command:
+      - python
+      - -m
+      - app.workers.metadata_ingest
+      - --poll-interval
+      - "2"
+    develop: *backend-watch
+    environment: *local-backend-env
+
+  download-worker:
+    restart: "no"
+    command:
+      - python
+      - -m
+      - app.workers.download_ingest
+      - --poll-interval
+      - "2"
+    develop: *backend-watch
+    volumes:
+      - ./backend/.secrets:/app/backend/.secrets:ro
+    environment: *local-backend-env
+
+  upload-worker:
+    restart: "no"
+    command:
+      - python
+      - -m
+      - app.workers.upload_ingest
+      - --poll-interval
+      - "2"
+    develop: *backend-watch
+    environment: *local-backend-env
+
+  processing-worker:
+    restart: "no"
+    command:
+      - python
+      - -m
+      - app.workers.media_processing
+      - --poll-interval
+      - "2"
+    develop: *backend-watch
+    environment: *local-backend-env
+
+  subtitle-worker:
+    restart: "no"
+    command:
+      - python
+      - -m
+      - app.workers.subtitle_transcription
+      - --poll-interval
+      - "2"
+    develop: *backend-watch
+    environment: *local-backend-env
+
+  frontend:
+    restart: "no"
+    ports:
+      - "5173:80"
+    build:
+      args:
+        - VITE_API_URL=http://localhost:8000
+        - NODE_ENV=development
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "1080:1080"
+      - "1025:1025"
