@@ -41,6 +41,23 @@ jobs:
     if: ${{ needs.changes.outputs.changed == 'true' }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      VITE_API_URL: http://localhost:8000
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: changethis
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       matrix:
         shardIndex: [1, 2, 3, 4]
@@ -64,11 +81,25 @@ jobs:
     - run: bun ci
       working-directory: frontend
     - run: bash scripts/generate-client.sh
-    - run: docker compose build
-    - run: docker compose down -v --remove-orphans
+    - name: Migrate DB
+      run: uv run bash scripts/prestart.sh
+      working-directory: backend
+    - name: Start backend
+      run: |
+        uv run fastapi run app/main.py > ../backend.log 2>&1 &
+        for i in {1..60}; do
+          curl -fsS http://localhost:8000/api/v1/utils/health-check/ && exit 0
+          sleep 1
+        done
+        cat ../backend.log
+        exit 1
+      working-directory: backend
+    - name: Install Playwright browser
+      run: bunx playwright install --with-deps chromium
+      working-directory: frontend
     - name: Run Playwright tests
-      run: docker compose run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-    - run: docker compose down -v --remove-orphans
+      run: bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      working-directory: frontend
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

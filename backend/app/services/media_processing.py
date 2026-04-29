@@ -629,10 +629,12 @@ def _generate_bundle_derivatives(
 
         hls_root_dir = output_dir / f"{bundle.reference_asset.asset.id}-hls"
         master_playlist_path = processor.create_hls_package(
-            video_input_path=proxy_path,
-            audio_input_path=None,
+            video_input_path=bundle.video_source.local_path,
+            audio_input_path=(
+                bundle.audio_source.local_path if bundle.audio_source is not None else None
+            ),
             output_dir=hls_root_dir,
-            include_audio_from_video_input=True,
+            include_audio_from_video_input=include_audio_from_video_input,
         )
         derivative_assets.extend(
             _persist_hls_bundle(

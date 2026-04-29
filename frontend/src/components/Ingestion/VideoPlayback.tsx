@@ -492,7 +492,7 @@ export function VideoPlayback({
     canPlayNativeHls && hlsUrlQuery.data?.url ? "hls" : "proxy"
   const playbackUrl =
     preferredMode === "hls" ? hlsUrlQuery.data?.url : fallbackUrlQuery.data?.url
-  const playbackLabel = preferredMode === "hls" ? "Native HLS" : "Proxy MP4"
+  const playbackLabel = preferredMode === "hls" ? "Native HLS" : "MP4"
   const isLoading =
     hlsUrlQuery.isLoading ||
     (preferredMode === "proxy" && fallbackUrlQuery.isLoading)

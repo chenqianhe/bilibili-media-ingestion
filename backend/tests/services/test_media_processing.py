@@ -713,6 +713,10 @@ def test_process_media_processing_job_creates_proxy_and_hls_derivatives(
     assert master_asset.metadata_json["proxy_asset_id"] == str(proxy_asset.id)
     assert len(processor.proxy_calls) == 1
     assert len(processor.hls_calls) == 1
+    hls_call = processor.hls_calls[0]
+    assert hls_call[0].name.endswith("source.mp4")
+    assert hls_call[1] is None
+    assert hls_call[2] is True
 
 
 def test_process_media_processing_job_uploads_hls_assets_without_reusing_existing_objects(
@@ -888,6 +892,73 @@ def test_process_media_processing_job_handles_split_video_and_audio_sources(
         "source_video_stream",
         "source_audio_stream",
         "normalized_mp4",
+        "thumbnail",
+    }
+
+
+def test_process_media_processing_job_creates_hls_from_split_source_streams(
+    db: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "app.services.media_processing.settings.INGEST_TMP_DIR",
+        str(tmp_path),
+    )
+
+    bvid = random_bvid()
+    create_video(db, bvid=bvid)
+    storage_client = RecordingObjectStorageClient(root_dir=tmp_path / "remote")
+    processor = StaticMediaProcessor()
+    job = create_source_uploaded_job(
+        db,
+        bvid=bvid,
+        options={
+            "download_video": True,
+            "create_normalized_mp4": False,
+            "create_hls": True,
+        },
+    )
+    create_uploaded_source_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        storage_client=storage_client,
+        filename="video.mp4",
+        content=b"uploaded-video-stream",
+        asset_type="source_video_stream",
+    )
+    create_uploaded_source_asset(
+        db,
+        job_id=job.id,
+        bvid=bvid,
+        storage_client=storage_client,
+        filename="audio.m4a",
+        content=b"uploaded-audio-stream",
+        asset_type="source_audio_stream",
+    )
+
+    processed_job = process_media_processing_job(
+        session=db,
+        job_id=job.id,
+        storage_client=storage_client,
+        processor=processor,
+    )
+
+    assert processed_job.status == "completed"
+    assert len(processor.proxy_calls) == 1
+    assert len(processor.hls_calls) == 1
+    hls_call = processor.hls_calls[0]
+    assert hls_call[0].name.endswith("video.mp4")
+    assert hls_call[1] is not None
+    assert hls_call[1].name.endswith("audio.m4a")
+    assert hls_call[2] is False
+
+    assets = asset_list_for_job(db, job_id=job.id)
+    assert {asset.asset_type for asset in assets} == {
+        "source_video_stream",
+        "source_audio_stream",
+        "proxy_mp4",
+        "hls_master",
+        "hls_segment",
         "thumbnail",
     }
 

@@ -49,8 +49,6 @@ There is also a command override that runs `fastapi run --reload` instead of the
 $ docker compose watch
 ```
 
-There is also a commented out `command` override, you can uncomment it and comment the default one. It makes the backend container run a process that does "nothing", but keeps the container alive. That allows you to get inside your running container and execute commands inside, for example a Python interpreter to test installed dependencies, or start the development server that reloads when it detects changes.
-
 To get inside the container with a `bash` session you can start the stack with:
 
 ```console
@@ -125,14 +123,8 @@ automatically. Those defaults point at a dedicated Postgres listener on
 `localhost:55432`, while the gitignored root `.env.local` can continue to hold
 optional live S3 credentials for `test_live_object_storage_smoke.py`.
 
-Bring up the dedicated local test database with:
-
-```bash
-docker compose --profile test up -d test-db
-```
-
-Then run the host-based ingestion or smoke suites without exporting temporary
-`POSTGRES_*` overrides:
+Prepare a PostgreSQL test database yourself, then run the host-based ingestion
+or smoke suites without exporting temporary `POSTGRES_*` overrides:
 
 ```bash
 cd backend
@@ -140,11 +132,9 @@ uv run pytest tests/services/test_live_object_storage_smoke.py -q
 ```
 
 If you need local-only test DB overrides, create a root `.env.test.local`.
-Explicit shell environment variables still win, so containerized
-`docker compose exec backend ...` test runs continue to use the backend
-container's `db:5432` settings. Host-based suites that share the dedicated
-`localhost:55432` database should be run serially, because the current fixtures
-clear the same tables between runs.
+Explicit shell environment variables still win. Host-based suites that share the
+same database should be run serially, because the current fixtures clear the
+same tables between runs.
 
 ### Production environment checklist
 
@@ -196,11 +186,11 @@ builds; the default `cpu` keeps the existing `libx264` behavior. Containerized
 `nvenc` deployments also need NVIDIA runtime / GPU device access for the
 processing worker.
 
-Important deployment caveat: the current `compose.yml` still hardcodes
-`POSTGRES_SERVER=db` for the backend, prestart job, and workers so local
-containerized development keeps talking to the bundled Postgres service. If you
-want to run the Compose stack against an external PostgreSQL instance, adjust
-that wiring before treating the default Compose file as production-ready.
+The root `compose.yml` reads PostgreSQL and S3 settings from `.env` /
+`.env.local`; those services are external dependencies and are not started by
+Compose. Containerized deployments also share an `ingest-tmp` named volume
+between backend and workers so downloaded source files can be uploaded and
+processed by later stages.
 
 ### Authenticated Bilibili access
 

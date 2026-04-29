@@ -18,6 +18,8 @@ from app.processor.base import (
 
 _MP4_CONTAINER_ALIASES = {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}
 _SUPPORTED_VIDEO_ACCELERATORS = {"cpu", "none", "videotoolbox", "nvenc"}
+_HLS_STREAM_COPY_VIDEO_CODECS = {"h264"}
+_HLS_STREAM_COPY_AUDIO_CODECS = {"aac", "mp3"}
 
 
 def _coerce_float(value: Any) -> float | None:
@@ -310,7 +312,11 @@ class FFmpegMediaProcessor:
         else:
             command.append("-an")
 
-        if audio_input_path is None and video_input_path.suffix.lower() == ".mp4":
+        if self._can_copy_hls_streams(
+            video_input_path=video_input_path,
+            audio_input_path=audio_input_path,
+            include_audio_from_video_input=include_audio_from_video_input,
+        ):
             command.extend(["-c:v", "copy"])
             if has_audio_output:
                 command.extend(["-c:a", "copy"])
@@ -318,24 +324,21 @@ class FFmpegMediaProcessor:
             command.extend(
                 [
                     "-vf",
-                    (
-                        "scale=1280:720:force_original_aspect_ratio=decrease:"
-                        "force_divisible_by=2"
-                    ),
+                    "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                     "-c:v",
                     *self._video_encoding_args(
-                        preset="veryfast",
-                        video_bitrate="2500k",
-                        crf="23",
-                        maxrate="2500k",
-                        bufsize="5000k",
+                        preset="fast",
+                        video_bitrate="8000k",
+                        crf="20",
+                        maxrate="12000k",
+                        bufsize="24000k",
                     ),
                     "-pix_fmt",
                     "yuv420p",
                 ]
             )
             if has_audio_output:
-                command.extend(["-c:a", "aac", "-b:a", "128k", "-shortest"])
+                command.extend(["-c:a", "aac", "-b:a", "192k", "-shortest"])
 
         command.extend(
             [
@@ -464,6 +467,26 @@ class FFmpegMediaProcessor:
         if bufsize is not None:
             args.extend(["-bufsize", bufsize])
         return args
+
+    def _can_copy_hls_streams(
+        self,
+        *,
+        video_input_path: Path,
+        audio_input_path: Path | None,
+        include_audio_from_video_input: bool,
+    ) -> bool:
+        video_probe = self.probe(input_path=video_input_path)
+        if video_probe.video_codec not in _HLS_STREAM_COPY_VIDEO_CODECS:
+            return False
+
+        if audio_input_path is None:
+            return not include_audio_from_video_input or (
+                not video_probe.has_audio
+                or video_probe.audio_codec in _HLS_STREAM_COPY_AUDIO_CODECS
+            )
+
+        audio_probe = self.probe(input_path=audio_input_path)
+        return audio_probe.audio_codec in _HLS_STREAM_COPY_AUDIO_CODECS
 
     def _build_mp4_command(
         self,

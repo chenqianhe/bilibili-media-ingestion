@@ -747,8 +747,8 @@ function VideosPage() {
 
   const hlsAsset = assets.find((asset) => asset.asset_type === "hls_master")
   const playbackAsset =
-    assets.find((asset) => asset.asset_type === "proxy_mp4") ??
-    assets.find((asset) => asset.asset_type === "normalized_mp4")
+    assets.find((asset) => asset.asset_type === "normalized_mp4") ??
+    assets.find((asset) => asset.asset_type === "proxy_mp4")
   const hasSubtitleSourceAssets = assets.some(
     (asset) =>
       subtitleSourceAssetTypes.has(asset.asset_type) &&
