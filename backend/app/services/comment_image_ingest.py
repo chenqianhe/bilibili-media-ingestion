@@ -14,7 +14,8 @@ from app.crawler.bilibili_auxiliary import (
 )
 from app.crawler.bilibili_web import BilibiliWebClient, BilibiliWebError
 from app.ingest_models import IngestJob, MediaAsset, VideoComment, VideoCommentImage
-from app.services.image_asset_ingest import strip_url_fields, store_remote_image_asset
+from app.services.image_asset_ingest import store_remote_image_asset, strip_url_fields
+from app.services.text_sanitization import strip_nul_bytes
 from app.uploader.base import ObjectStorageClient, ObjectStorageError
 
 _COMMENT_IMAGE_ASSET_TYPE = "comment_image"
@@ -185,7 +186,7 @@ def merge_comment_images(
                         error_message = None
                         asset_id = asset.id
 
-                raw_payload = strip_url_fields(dict(image.raw))
+                raw_payload = strip_nul_bytes(strip_url_fields(dict(image.raw)))
                 if error_message is not None:
                     raw_payload["storage_error"] = error_message
                 if asset_id is not None:

@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.crawler.bilibili_web import BilibiliWebClient
 from app.ingest_models import IngestJob, MediaAsset
 from app.services.storage_keys import build_asset_storage_key
+from app.services.text_sanitization import strip_nul_bytes
 from app.uploader.base import ObjectStorageClient
 
 _IMAGE_CONTENT_TYPE_EXTENSIONS = {
@@ -145,7 +146,7 @@ def _build_reused_asset(
     height: int | None,
 ) -> MediaAsset:
     reused_at = _now_utc()
-    payload = dict(strip_url_fields(metadata_json or {}))
+    payload = dict(strip_nul_bytes(strip_url_fields(metadata_json or {})))
     payload["reused_from_asset_id"] = str(existing_asset.id)
     payload["uploaded_at"] = reused_at.isoformat()
     source_sha256 = existing_asset.sha256
@@ -271,7 +272,7 @@ def store_remote_image_asset(
         return reused_asset
 
     uploaded_at = _now_utc()
-    payload = dict(strip_url_fields(metadata_json or {}))
+    payload = dict(strip_nul_bytes(strip_url_fields(metadata_json or {})))
     payload["uploaded_at"] = uploaded_at.isoformat()
 
     asset = MediaAsset(
