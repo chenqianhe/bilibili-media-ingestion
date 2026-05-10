@@ -1073,6 +1073,62 @@ def test_process_next_media_processing_job_uses_priority_order(
     assert second_processed_job.status == "completed"
 
 
+def test_process_next_media_processing_job_can_target_bvid(
+    db: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "app.services.media_processing.settings.INGEST_TMP_DIR",
+        str(tmp_path),
+    )
+
+    untargeted_bvid = random_bvid()
+    targeted_bvid = random_bvid()
+    create_video(db, bvid=untargeted_bvid)
+    create_video(db, bvid=targeted_bvid)
+    storage_client = RecordingObjectStorageClient(root_dir=tmp_path / "remote")
+    processor = StaticMediaProcessor()
+
+    untargeted_job = create_source_uploaded_job(
+        db,
+        bvid=untargeted_bvid,
+        priority=-40_003,
+    )
+    targeted_job = create_source_uploaded_job(
+        db,
+        bvid=targeted_bvid,
+        priority=-40_002,
+    )
+    create_uploaded_source_asset(
+        db,
+        job_id=untargeted_job.id,
+        bvid=untargeted_bvid,
+        storage_client=storage_client,
+        filename="untargeted.mp4",
+        content=b"untargeted-source",
+    )
+    create_uploaded_source_asset(
+        db,
+        job_id=targeted_job.id,
+        bvid=targeted_bvid,
+        storage_client=storage_client,
+        filename="targeted.mp4",
+        content=b"targeted-source",
+    )
+
+    processed_job = process_next_media_processing_job(
+        session=db,
+        storage_client=storage_client,
+        processor=processor,
+        bvid=targeted_bvid,
+    )
+
+    assert processed_job is not None
+    assert processed_job.id == targeted_job.id
+    assert processed_job.status == "completed"
+    db.refresh(untargeted_job)
+    assert untargeted_job.status == "source_uploaded"
+
+
 def test_process_next_media_processing_job_reclaims_stale_processing_job(
     db: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -13,6 +13,7 @@ from app.core.db import engine
 from app.ingest_models import IngestJob
 from app.processor.base import MediaProcessor
 from app.processor.ffmpeg import FFmpegMediaProcessor
+from app.services.bilibili import extract_bvid
 from app.services.media_processing import process_media_processing_job
 from app.uploader.base import ObjectStorageClient
 from app.uploader.s3_multipart import S3MultipartObjectStorageClient
@@ -32,6 +33,7 @@ def claim_next_media_processing_job(
     session: Session,
     *,
     stale_after_seconds: float | None = None,
+    bvid: str | None = None,
 ) -> IngestJob | None:
     effective_stale_after_seconds = (
         stale_after_seconds or settings.PROCESSING_WORKER_STALE_AFTER_SECONDS
@@ -41,6 +43,7 @@ def claim_next_media_processing_job(
         session,
         statuses=_PROCESSING_CANDIDATE_STATUSES,
         require_normalized_bvid=True,
+        normalized_bvid=bvid,
     )
     for job in candidates:
         if job.status == "source_uploaded":
@@ -67,10 +70,12 @@ def process_next_media_processing_job(
     storage_client: ObjectStorageClient,
     processor: MediaProcessor,
     stale_after_seconds: float | None = None,
+    bvid: str | None = None,
 ) -> IngestJob | None:
     job = claim_next_media_processing_job(
         session,
         stale_after_seconds=stale_after_seconds,
+        bvid=bvid,
     )
     if job is None:
         return None
@@ -92,6 +97,7 @@ class MediaProcessingWorker:
         session_factory: Callable[[], Session] | None = None,
         poll_interval_seconds: float | None = None,
         stale_after_seconds: float | None = None,
+        bvid: str | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
         self._storage_client = storage_client
@@ -103,6 +109,7 @@ class MediaProcessingWorker:
         self._stale_after_seconds = (
             stale_after_seconds or settings.PROCESSING_WORKER_STALE_AFTER_SECONDS
         )
+        self._bvid = bvid
         self._sleep = sleep or time.sleep
 
     def run_once(self) -> IngestJob | None:
@@ -112,6 +119,7 @@ class MediaProcessingWorker:
                 storage_client=self._storage_client,
                 processor=self._processor,
                 stale_after_seconds=self._stale_after_seconds,
+                bvid=self._bvid,
             )
 
     def run_forever(self, *, max_jobs: int | None = None) -> int:
@@ -167,6 +175,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Seconds after which an in-progress media job can be reclaimed",
     )
     parser.add_argument(
+        "--bvid",
+        default=None,
+        help="Only claim media processing jobs for this BVID or Bilibili URL",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -180,6 +193,9 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(level=getattr(logging, args.log_level))
+    bvid = extract_bvid(args.bvid) if args.bvid else None
+    if args.bvid and bvid is None:
+        parser.error("--bvid must be a valid BVID or Bilibili video URL")
 
     storage_client = S3MultipartObjectStorageClient()
     processor = FFmpegMediaProcessor()
@@ -188,6 +204,7 @@ def main() -> int:
         processor=processor,
         poll_interval_seconds=args.poll_interval,
         stale_after_seconds=args.stale_after,
+        bvid=bvid,
     )
     try:
         if args.once:

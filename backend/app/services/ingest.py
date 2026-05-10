@@ -11,7 +11,7 @@ from app.ingest_models import (
 )
 from app.models import User
 from app.services.audit import record_audit_event
-from app.services.bilibili import extract_bvid
+from app.services.bilibili import BilibiliShortLinkResolveError, resolve_bvid
 
 
 def build_idempotency_key(
@@ -32,7 +32,13 @@ def submit_ingest_job(
     current_user: User,
     payload: IngestVideoRequest,
 ) -> IngestJob:
-    normalized_bvid = extract_bvid(payload.input)
+    try:
+        normalized_bvid = resolve_bvid(payload.input)
+    except BilibiliShortLinkResolveError:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not resolve Bilibili short link",
+        )
     if normalized_bvid is None:
         raise HTTPException(status_code=400, detail="Could not extract a valid BVID")
 

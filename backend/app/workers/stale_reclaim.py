@@ -20,6 +20,7 @@ def select_candidate_jobs(
     *,
     statuses: Sequence[str],
     require_normalized_bvid: bool = False,
+    normalized_bvid: str | None = None,
     limit: int = _CLAIM_CANDIDATE_LIMIT,
 ) -> list[IngestJob]:
     statement = select(IngestJob).where(
@@ -28,6 +29,8 @@ def select_candidate_jobs(
     )
     if require_normalized_bvid:
         statement = statement.where(IngestJob.normalized_bvid.is_not(None))
+    if normalized_bvid is not None:
+        statement = statement.where(IngestJob.normalized_bvid == normalized_bvid)
 
     statement = (
         statement.order_by(IngestJob.priority.asc(), IngestJob.created_at.asc())

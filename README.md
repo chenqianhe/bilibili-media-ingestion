@@ -28,6 +28,7 @@
 
 - 支持提交 BVID，例如 `BV1xx411c7mD`。
 - 支持提交 Bilibili 视频链接，例如 `https://www.bilibili.com/video/BV1xx411c7mD`。
+- 支持提交 Bilibili 短链分享文本，例如 `【视频标题-哔哩哔哩】 https://b23.tv/abc123`。
 - 后端会从输入中解析出标准 BVID，并以采集任务的形式推进后续流程。
 
 ### 数据采集
