@@ -21,6 +21,7 @@ from app.ingest_models import (
 )
 from app.services.comment_image_ingest import merge_comment_images
 from app.services.image_asset_ingest import strip_url_fields
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 from app.uploader.base import ObjectStorageClient
 
 
@@ -227,14 +228,14 @@ def _merge_comments(
 
         persisted_comment.oid = comment.oid
         persisted_comment.mid = comment.mid
-        persisted_comment.uname = comment.uname
+        persisted_comment.uname = strip_nul_text(comment.uname)
         persisted_comment.root = comment.root
         persisted_comment.parent = comment.parent
-        persisted_comment.message = comment.message
+        persisted_comment.message = strip_nul_text(comment.message)
         persisted_comment.like_count = comment.like_count
         persisted_comment.reply_count = comment.reply_count
         persisted_comment.ctime = comment.ctime
-        persisted_comment.raw = strip_url_fields(comment.raw)
+        persisted_comment.raw = strip_nul_bytes(strip_url_fields(comment.raw))
         persisted_comment.crawled_at = crawled_at
         session.add(persisted_comment)
     session.flush()
@@ -310,11 +311,11 @@ def _merge_danmaku(
         persisted_entry.mode = entry.mode
         persisted_entry.font_size = entry.font_size
         persisted_entry.color = entry.color
-        persisted_entry.content = entry.content
+        persisted_entry.content = strip_nul_text(entry.content)
         persisted_entry.sent_at = entry.sent_at
-        persisted_entry.source = entry.source
+        persisted_entry.source = strip_nul_text(entry.source) or ""
         persisted_entry.history_date = entry.history_date
-        persisted_entry.raw = entry.raw
+        persisted_entry.raw = strip_nul_bytes(entry.raw)
         persisted_entry.crawled_at = crawled_at
         session.add(persisted_entry)
         existing_by_key[_persisted_danmaku_dedupe_key(persisted_entry)] = persisted_entry
@@ -345,7 +346,7 @@ def _incoming_danmaku_fallback_key(
         entry.mode,
         entry.font_size,
         entry.color,
-        entry.content,
+        strip_nul_text(entry.content),
     )
 
 
@@ -385,10 +386,10 @@ def _replace_subtitles(
             VideoSubtitle(
                 bvid=bvid,
                 cid=track.cid,
-                lang=track.lang,
-                source=track.source,
-                content=track.content,
-                raw=track.raw,
+                lang=strip_nul_text(track.lang),
+                source=strip_nul_text(track.source),
+                content=strip_nul_text(track.content),
+                raw=strip_nul_bytes(track.raw),
                 crawled_at=crawled_at,
             )
         )

@@ -170,6 +170,20 @@ def asset_source_sha256(asset: MediaAsset) -> str | None:
     return None
 
 
+def assert_no_nul_bytes(value: object) -> None:
+    if isinstance(value, str):
+        assert "\x00" not in value
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            assert_no_nul_bytes(key)
+            assert_no_nul_bytes(item)
+        return
+    if isinstance(value, list | tuple):
+        for item in value:
+            assert_no_nul_bytes(item)
+
+
 def build_metadata(
     *,
     bvid: str,
@@ -437,6 +451,76 @@ def test_process_metadata_ingest_job_persists_requested_auxiliary_records(
     assert len(subtitles) == 1
     assert subtitles[0].lang == "zh-CN"
     assert "第一句" in (subtitles[0].content or "")
+
+
+def test_process_metadata_ingest_job_strips_nul_bytes_from_comment_records(
+    db: Session,
+) -> None:
+    bvid = random_bvid()
+    job = create_job(
+        db,
+        bvid=bvid,
+        download_video=False,
+        options={"fetch_comments": True},
+    )
+
+    processed_job = process_metadata_ingest_job(
+        session=db,
+        job_id=job.id,
+        provider=StaticMetadataProvider(build_metadata(bvid=bvid)),
+        auxiliary_provider=StaticAuxiliaryProvider(
+            comments=[
+                BilibiliCommentMetadata(
+                    rpid=101,
+                    oid=987654321,
+                    mid=42,
+                    uname="Uploader\x00 42",
+                    root=None,
+                    parent=None,
+                    message="Top\x00 level reply",
+                    like_count=3,
+                    reply_count=1,
+                    ctime=datetime(2025, 1, 2, tzinfo=timezone.utc),
+                    images=[
+                        BilibiliCommentImageMetadata(
+                            source_url="https://i0.hdslb.com/bfs/reply/example-1.jpg",
+                            width=1280,
+                            height=720,
+                            raw={
+                                "caption": "image\x00 raw",
+                                "bad\x00key": {"nested": "va\x00lue"},
+                            },
+                        )
+                    ],
+                    raw={
+                        "rpid": 101,
+                        "content": {"message": "raw\x00 text"},
+                        "bad\x00key": ["x\x00", {"name": "y\x00"}],
+                    },
+                )
+            ],
+        ),
+    )
+
+    assert processed_job.status == "metadata_ready", processed_job.error_message
+
+    comments = list(
+        db.exec(select(VideoComment).where(VideoComment.bvid == bvid)).all()
+    )
+    assert len(comments) == 1
+    assert comments[0].uname == "Uploader 42"
+    assert comments[0].message == "Top level reply"
+    assert comments[0].raw["content"]["message"] == "raw text"
+    assert comments[0].raw["badkey"] == ["x", {"name": "y"}]
+    assert_no_nul_bytes(comments[0].raw)
+
+    comment_images = list(
+        db.exec(select(VideoCommentImage).where(VideoCommentImage.bvid == bvid)).all()
+    )
+    assert len(comment_images) == 1
+    assert comment_images[0].raw["caption"] == "image raw"
+    assert comment_images[0].raw["badkey"] == {"nested": "value"}
+    assert_no_nul_bytes(comment_images[0].raw)
 
 
 def test_process_metadata_ingest_job_persists_and_uploads_comment_images(
