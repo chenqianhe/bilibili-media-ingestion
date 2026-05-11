@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import uuid
 import shutil
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +29,7 @@ from app.services.image_asset_ingest import (
     store_remote_image_asset,
     strip_url_fields,
 )
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 from app.uploader.base import ObjectStorageClient
 
 
@@ -39,7 +40,7 @@ def _now_utc() -> datetime:
 def _merge_progress(job: IngestJob, *, payload: dict[str, object]) -> None:
     progress = dict(job.progress)
     progress.update(payload)
-    job.progress = progress
+    job.progress = strip_nul_bytes(progress)
 
 
 def _upsert_uploader(
@@ -54,11 +55,11 @@ def _upsert_uploader(
     if uploader is None:
         uploader = Uploader(mid=metadata.mid)
 
-    uploader.name = metadata.name
+    uploader.name = strip_nul_text(metadata.name)
     uploader.avatar_url = None
     uploader.avatar_s3_key = None
     if metadata.raw:
-        uploader.raw = strip_url_fields(metadata.raw)
+        uploader.raw = strip_nul_bytes(strip_url_fields(metadata.raw))
     uploader.last_seen_at = _now_utc()
     session.add(uploader)
     return uploader
@@ -73,22 +74,22 @@ def _upsert_video(
 ) -> Video:
     video = session.get(Video, metadata.bvid)
     if video is None:
-        video = Video(bvid=metadata.bvid, title=metadata.title)
+        video = Video(bvid=metadata.bvid, title=strip_nul_text(metadata.title) or "")
 
     video.aid = metadata.aid
-    video.title = metadata.title
-    video.description = metadata.description
+    video.title = strip_nul_text(metadata.title) or ""
+    video.description = strip_nul_text(metadata.description)
     video.duration_seconds = metadata.duration_seconds
     video.pubdate = metadata.pubdate
     video.owner_mid = uploader.mid if uploader else None
-    video.owner_name = uploader.name if uploader else None
+    video.owner_name = strip_nul_text(uploader.name) if uploader else None
     video.cover_url = None
     video.cover_s3_key = None
-    video.category = metadata.category
-    video.tags = list(dict.fromkeys(metadata.tags))
-    video.stat = metadata.stat.as_dict()
+    video.category = strip_nul_text(metadata.category)
+    video.tags = list(dict.fromkeys(strip_nul_text(tag) or "" for tag in metadata.tags))
+    video.stat = strip_nul_bytes(metadata.stat.as_dict())
     if metadata.raw:
-        video.raw = strip_url_fields(metadata.raw)
+        video.raw = strip_nul_bytes(strip_url_fields(metadata.raw))
     video.last_crawled_at = crawled_at
     session.add(video)
     return video
@@ -132,7 +133,11 @@ def _sync_video_image_assets(
         )
         video.cover_asset_id = cover_asset.id
 
-    if uploader is not None and metadata.owner is not None and metadata.owner.avatar_url:
+    if (
+        uploader is not None
+        and metadata.owner is not None
+        and metadata.owner.avatar_url
+    ):
         avatar_asset = store_remote_image_asset(
             session,
             job=job,
@@ -180,9 +185,9 @@ def _sync_video_pages(
             )
         page.aid = metadata.aid
         page.page_no = page_metadata.page_no
-        page.part_title = page_metadata.part_title
+        page.part_title = strip_nul_text(page_metadata.part_title)
         page.duration_seconds = page_metadata.duration_seconds
-        page.raw = page_metadata.raw
+        page.raw = strip_nul_bytes(page_metadata.raw)
         session.add(page)
         seen_cids.add(page_metadata.cid)
 
@@ -269,11 +274,7 @@ def _complete_metadata_fetch(
                 "owner_mid": owner_mid,
                 "last_crawled_at": crawled_at.isoformat(),
             },
-            **(
-                {"auxiliary": auxiliary_summary}
-                if auxiliary_summary
-                else {}
-            ),
+            **({"auxiliary": auxiliary_summary} if auxiliary_summary else {}),
         },
     )
     session.add(job)
@@ -290,7 +291,7 @@ def _fail_metadata_fetch(
     job.status = "failed"
     job.phase = "metadata fetch failed"
     job.error_code = error_code
-    job.error_message = message
+    job.error_message = strip_nul_text(message)
     job.finished_at = failed_at
     job.retry_count += 1
     _merge_progress(
@@ -401,11 +402,7 @@ def process_metadata_ingest_job(
                     "bvid": metadata.bvid,
                     "page_count": len(metadata.pages),
                     "status": job.status,
-                    **(
-                        {"auxiliary": auxiliary_summary}
-                        if auxiliary_summary
-                        else {}
-                    ),
+                    **({"auxiliary": auxiliary_summary} if auxiliary_summary else {}),
                 },
             )
         except Exception as exc:

@@ -140,8 +140,7 @@ def fetch_requested_auxiliary_data(
         else:
             expected_days_count = None
         danmaku_sources = {
-            str(page_summary["source"])
-            for page_summary in danmaku_pages
+            str(page_summary["source"]) for page_summary in danmaku_pages
         }
         summary["danmaku"] = {
             "count": danmaku_merge_summary["stored_count"],
@@ -152,9 +151,7 @@ def fetch_requested_auxiliary_data(
                 {page.cid for page in metadata.pages} & stored_danmaku_cids
             ),
             "source": (
-                next(iter(danmaku_sources))
-                if len(danmaku_sources) == 1
-                else "mixed"
+                next(iter(danmaku_sources)) if len(danmaku_sources) == 1 else "mixed"
             ),
             "history_used": any(
                 bool(page_summary["history_used"]) for page_summary in danmaku_pages
@@ -196,7 +193,9 @@ def fetch_requested_auxiliary_data(
             "count": len(subtitle_tracks),
             "cid_count": len({track.cid for track in subtitle_tracks}),
             "languages": sorted(
-                {track.lang for track in subtitle_tracks if track.lang is not None}
+                language
+                for track in subtitle_tracks
+                if (language := strip_nul_text(track.lang))
             ),
         }
 
@@ -261,9 +260,7 @@ def _merge_comments(
 def _load_stored_danmaku_cids(session: Session, *, bvid: str) -> set[int]:
     stored_cids: set[int] = set()
     for raw_cid in session.exec(
-        select(VideoDanmaku.cid)
-        .where(VideoDanmaku.bvid == bvid)
-        .distinct()
+        select(VideoDanmaku.cid).where(VideoDanmaku.bvid == bvid).distinct()
     ).all():
         stored_cids.add(_coerce_scalar_int(raw_cid))
     return stored_cids
@@ -318,7 +315,9 @@ def _merge_danmaku(
         persisted_entry.raw = strip_nul_bytes(entry.raw)
         persisted_entry.crawled_at = crawled_at
         session.add(persisted_entry)
-        existing_by_key[_persisted_danmaku_dedupe_key(persisted_entry)] = persisted_entry
+        existing_by_key[_persisted_danmaku_dedupe_key(persisted_entry)] = (
+            persisted_entry
+        )
         existing_by_fallback_key[fallback_key] = persisted_entry
     session.flush()
     stored_count = (

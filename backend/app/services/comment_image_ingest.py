@@ -15,7 +15,7 @@ from app.crawler.bilibili_auxiliary import (
 from app.crawler.bilibili_web import BilibiliWebClient, BilibiliWebError
 from app.ingest_models import IngestJob, MediaAsset, VideoComment, VideoCommentImage
 from app.services.image_asset_ingest import store_remote_image_asset, strip_url_fields
-from app.services.text_sanitization import strip_nul_bytes
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 from app.uploader.base import ObjectStorageClient, ObjectStorageError
 
 _COMMENT_IMAGE_ASSET_TYPE = "comment_image"
@@ -106,13 +106,19 @@ def merge_comment_images(
         for comment in comments
         if comment.rpid in persisted_comments_by_rpid
     ]
-    existing_images = list(
-        session.exec(
-            select(VideoCommentImage)
-            .where(VideoCommentImage.comment_id.in_(comment_ids))
-            .order_by(VideoCommentImage.comment_id.asc(), VideoCommentImage.ordinal.asc())
-        ).all()
-    ) if comment_ids else []
+    existing_images = (
+        list(
+            session.exec(
+                select(VideoCommentImage)
+                .where(VideoCommentImage.comment_id.in_(comment_ids))
+                .order_by(
+                    VideoCommentImage.comment_id.asc(), VideoCommentImage.ordinal.asc()
+                )
+            ).all()
+        )
+        if comment_ids
+        else []
+    )
     existing_by_comment_id: dict[object, dict[int, VideoCommentImage]] = {}
     for existing_image in existing_images:
         existing_by_comment_id.setdefault(existing_image.comment_id, {})[
@@ -151,9 +157,7 @@ def merge_comment_images(
                         else None
                     )
                     asset_id = (
-                        existing_image.asset_id
-                        if existing_image is not None
-                        else None
+                        existing_image.asset_id if existing_image is not None else None
                     )
 
                 if (
@@ -179,7 +183,7 @@ def merge_comment_images(
                         )
                     except (BilibiliWebError, ObjectStorageError, ValueError) as exc:
                         storage_status = "failed"
-                        error_message = str(exc)
+                        error_message = strip_nul_text(str(exc))
                         asset_id = None
                     else:
                         storage_status = "ready"
@@ -204,7 +208,7 @@ def merge_comment_images(
                             height=image.height,
                             asset_id=asset_id,
                             storage_status=storage_status,
-                            error_message=error_message,
+                            error_message=strip_nul_text(error_message),
                             raw=raw_payload,
                             crawled_at=crawled_at,
                         )
@@ -218,7 +222,7 @@ def merge_comment_images(
                 existing_image.height = image.height
                 existing_image.asset_id = asset_id
                 existing_image.storage_status = storage_status
-                existing_image.error_message = error_message
+                existing_image.error_message = strip_nul_text(error_message)
                 existing_image.raw = raw_payload
                 existing_image.crawled_at = crawled_at
                 session.add(existing_image)
