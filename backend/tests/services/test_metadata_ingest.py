@@ -283,9 +283,7 @@ def test_process_metadata_ingest_job_persists_video_records(db: Session) -> None
 
     pages = list(
         db.exec(
-            select(VideoPage)
-            .where(VideoPage.bvid == bvid)
-            .order_by(VideoPage.page_no)
+            select(VideoPage).where(VideoPage.bvid == bvid).order_by(VideoPage.page_no)
         ).all()
     )
     assert [page.cid for page in pages] == [101, 202]
@@ -439,6 +437,83 @@ def test_process_metadata_ingest_job_persists_requested_auxiliary_records(
     assert "第一句" in (subtitles[0].content or "")
 
 
+def test_process_metadata_ingest_job_strips_nul_bytes_from_auxiliary_records(
+    db: Session,
+) -> None:
+    bvid = random_bvid()
+    job = create_job(
+        db,
+        bvid=bvid,
+        download_video=False,
+        options={
+            "fetch_comments": True,
+            "fetch_danmaku": True,
+            "fetch_subtitles": True,
+        },
+    )
+
+    processed_job = process_metadata_ingest_job(
+        session=db,
+        job_id=job.id,
+        provider=StaticMetadataProvider(build_metadata(bvid=bvid)),
+        auxiliary_provider=StaticAuxiliaryProvider(
+            comments=[
+                BilibiliCommentMetadata(
+                    rpid=101,
+                    uname="Uploader\x00 42",
+                    message="Top\x00 level reply",
+                    raw={
+                        "rpid": 101,
+                        "content": {"message": "Top\x00 level reply"},
+                        "nul\x00key": "nul\x00value",
+                    },
+                )
+            ],
+            danmaku_by_cid={
+                101: [
+                    BilibiliDanmakuMetadata(
+                        id=1001,
+                        cid=101,
+                        content="Hel\x00lo",
+                        raw={"p": "bad\x00value", "items": ["a\x00b"]},
+                    )
+                ]
+            },
+            subtitles_by_cid={
+                101: [
+                    BilibiliSubtitleMetadata(
+                        cid=101,
+                        lang="zh\x00-CN",
+                        source="bilibili_\x00player_v2",
+                        content="字\x00幕",
+                        raw={"track": {"lan": "zh\x00-CN"}},
+                    )
+                ]
+            },
+        ),
+    )
+
+    assert processed_job.status == "metadata_ready", processed_job.error_message
+    assert processed_job.progress["auxiliary"]["subtitles"]["languages"] == ["zh-CN"]
+
+    comment = db.exec(select(VideoComment).where(VideoComment.bvid == bvid)).one()
+    assert comment.uname == "Uploader 42"
+    assert comment.message == "Top level reply"
+    assert comment.raw["content"]["message"] == "Top level reply"
+    assert comment.raw["nulkey"] == "nulvalue"
+    assert "\x00" not in str(comment.raw)
+
+    danmaku = db.exec(select(VideoDanmaku).where(VideoDanmaku.bvid == bvid)).one()
+    assert danmaku.content == "Hello"
+    assert danmaku.raw == {"p": "badvalue", "items": ["ab"]}
+
+    subtitle = db.exec(select(VideoSubtitle).where(VideoSubtitle.bvid == bvid)).one()
+    assert subtitle.lang == "zh-CN"
+    assert subtitle.source == "bilibili_player_v2"
+    assert subtitle.content == "字幕"
+    assert subtitle.raw == {"track": {"lan": "zh-CN"}}
+
+
 def test_process_metadata_ingest_job_persists_and_uploads_comment_images(
     db: Session,
     tmp_path: Path,
@@ -497,7 +572,9 @@ def test_process_metadata_ingest_job_persists_and_uploads_comment_images(
                                 source_url="https://i0.hdslb.com/bfs/reply/example-1.jpg",
                                 width=1280,
                                 height=720,
-                                raw={"img_src": "//i0.hdslb.com/bfs/reply/example-1.jpg"},
+                                raw={
+                                    "img_src": "//i0.hdslb.com/bfs/reply/example-1.jpg"
+                                },
                             )
                         ],
                         raw={"rpid": 101},
@@ -653,13 +730,11 @@ def test_process_metadata_ingest_job_reuses_existing_image_assets_without_repeat
     assert reused_cover_asset.metadata_json["reused_from_asset_id"] == str(
         first_assets["cover"].id
     )
-    assert (
-        reused_avatar_asset.metadata_json["source_sha256"]
-        == asset_source_sha256(first_assets["avatar"])
+    assert reused_avatar_asset.metadata_json["source_sha256"] == asset_source_sha256(
+        first_assets["avatar"]
     )
-    assert (
-        reused_cover_asset.metadata_json["source_sha256"]
-        == asset_source_sha256(first_assets["cover"])
+    assert reused_cover_asset.metadata_json["source_sha256"] == asset_source_sha256(
+        first_assets["cover"]
     )
 
 
@@ -694,6 +769,9 @@ def test_process_metadata_ingest_job_preserves_existing_comments_and_images_on_r
                 )
             ]
         ),
+    )
+    assert first_processed_job.status == "metadata_ready", (
+        first_processed_job.error_message
     )
 
     second_job = create_job(
@@ -841,6 +919,9 @@ def test_process_metadata_ingest_job_deduplicates_danmaku_without_ids_across_ref
             }
         ),
     )
+    assert first_processed_job.status == "metadata_ready", (
+        first_processed_job.error_message
+    )
 
     second_job = create_job(
         db,
@@ -941,9 +1022,7 @@ def test_process_metadata_ingest_job_reconciles_video_pages_on_refresh(
 
     pages = list(
         db.exec(
-            select(VideoPage)
-            .where(VideoPage.bvid == bvid)
-            .order_by(VideoPage.page_no)
+            select(VideoPage).where(VideoPage.bvid == bvid).order_by(VideoPage.page_no)
         ).all()
     )
     assert len(pages) == 1
@@ -959,7 +1038,11 @@ def test_process_metadata_ingest_job_merges_requested_auxiliary_records_on_refre
         db,
         bvid=bvid,
         download_video=False,
-        options={"fetch_comments": True, "fetch_danmaku": True, "fetch_subtitles": True},
+        options={
+            "fetch_comments": True,
+            "fetch_danmaku": True,
+            "fetch_subtitles": True,
+        },
     )
     first_processed_job = process_metadata_ingest_job(
         session=db,
@@ -967,7 +1050,9 @@ def test_process_metadata_ingest_job_merges_requested_auxiliary_records_on_refre
         provider=StaticMetadataProvider(build_metadata(bvid=bvid)),
         auxiliary_provider=StaticAuxiliaryProvider(
             comments=[
-                BilibiliCommentMetadata(rpid=101, message="Old reply", raw={"rpid": 101})
+                BilibiliCommentMetadata(
+                    rpid=101, message="Old reply", raw={"rpid": 101}
+                )
             ],
             danmaku_by_cid={
                 101: [
@@ -992,13 +1077,19 @@ def test_process_metadata_ingest_job_merges_requested_auxiliary_records_on_refre
             },
         ),
     )
-    assert first_processed_job.status == "metadata_ready", first_processed_job.error_message
+    assert first_processed_job.status == "metadata_ready", (
+        first_processed_job.error_message
+    )
 
     second_job = create_job(
         db,
         bvid=bvid,
         download_video=False,
-        options={"fetch_comments": True, "fetch_danmaku": True, "fetch_subtitles": True},
+        options={
+            "fetch_comments": True,
+            "fetch_danmaku": True,
+            "fetch_subtitles": True,
+        },
     )
     processed_job = process_metadata_ingest_job(
         session=db,
@@ -1006,7 +1097,9 @@ def test_process_metadata_ingest_job_merges_requested_auxiliary_records_on_refre
         provider=StaticMetadataProvider(build_metadata(bvid=bvid)),
         auxiliary_provider=StaticAuxiliaryProvider(
             comments=[
-                BilibiliCommentMetadata(rpid=202, message="New reply", raw={"rpid": 202})
+                BilibiliCommentMetadata(
+                    rpid=202, message="New reply", raw={"rpid": 202}
+                )
             ],
             danmaku_by_cid={
                 202: [
@@ -1039,7 +1132,9 @@ def test_process_metadata_ingest_job_merges_requested_auxiliary_records_on_refre
             .order_by(VideoComment.rpid.asc())
         ).all()
     )
-    assert [comment.rpid for comment in comments] == [101, 202], processed_job.error_message
+    assert [comment.rpid for comment in comments] == [101, 202], (
+        processed_job.error_message
+    )
     assert [comment.message for comment in comments] == ["Old reply", "New reply"]
 
     danmaku_entries = list(
@@ -1111,9 +1206,7 @@ def test_process_metadata_ingest_job_classifies_auxiliary_failures(
 def test_process_next_metadata_ingest_job_uses_priority_order(db: Session) -> None:
     lower_priority_bvid = random_bvid()
     higher_priority_bvid = random_bvid()
-    lower_priority_job = create_job(
-        db, bvid=lower_priority_bvid, download_video=False
-    )
+    lower_priority_job = create_job(db, bvid=lower_priority_bvid, download_video=False)
     lower_priority_job.priority = 20
     db.add(lower_priority_job)
 

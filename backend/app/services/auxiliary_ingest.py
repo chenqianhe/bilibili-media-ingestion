@@ -21,6 +21,10 @@ from app.ingest_models import (
 )
 from app.services.comment_image_ingest import merge_comment_images
 from app.services.image_asset_ingest import strip_url_fields
+from app.services.postgres_sanitize import (
+    sanitize_postgres_json,
+    sanitize_postgres_text,
+)
 from app.uploader.base import ObjectStorageClient
 
 
@@ -139,8 +143,7 @@ def fetch_requested_auxiliary_data(
         else:
             expected_days_count = None
         danmaku_sources = {
-            str(page_summary["source"])
-            for page_summary in danmaku_pages
+            str(page_summary["source"]) for page_summary in danmaku_pages
         }
         summary["danmaku"] = {
             "count": danmaku_merge_summary["stored_count"],
@@ -151,9 +154,7 @@ def fetch_requested_auxiliary_data(
                 {page.cid for page in metadata.pages} & stored_danmaku_cids
             ),
             "source": (
-                next(iter(danmaku_sources))
-                if len(danmaku_sources) == 1
-                else "mixed"
+                next(iter(danmaku_sources)) if len(danmaku_sources) == 1 else "mixed"
             ),
             "history_used": any(
                 bool(page_summary["history_used"]) for page_summary in danmaku_pages
@@ -195,7 +196,9 @@ def fetch_requested_auxiliary_data(
             "count": len(subtitle_tracks),
             "cid_count": len({track.cid for track in subtitle_tracks}),
             "languages": sorted(
-                {track.lang for track in subtitle_tracks if track.lang is not None}
+                language
+                for track in subtitle_tracks
+                if (language := sanitize_postgres_text(track.lang))
             ),
         }
 
@@ -227,14 +230,14 @@ def _merge_comments(
 
         persisted_comment.oid = comment.oid
         persisted_comment.mid = comment.mid
-        persisted_comment.uname = comment.uname
+        persisted_comment.uname = sanitize_postgres_text(comment.uname)
         persisted_comment.root = comment.root
         persisted_comment.parent = comment.parent
-        persisted_comment.message = comment.message
+        persisted_comment.message = sanitize_postgres_text(comment.message)
         persisted_comment.like_count = comment.like_count
         persisted_comment.reply_count = comment.reply_count
         persisted_comment.ctime = comment.ctime
-        persisted_comment.raw = strip_url_fields(comment.raw)
+        persisted_comment.raw = sanitize_postgres_json(strip_url_fields(comment.raw))
         persisted_comment.crawled_at = crawled_at
         session.add(persisted_comment)
     session.flush()
@@ -260,9 +263,7 @@ def _merge_comments(
 def _load_stored_danmaku_cids(session: Session, *, bvid: str) -> set[int]:
     stored_cids: set[int] = set()
     for raw_cid in session.exec(
-        select(VideoDanmaku.cid)
-        .where(VideoDanmaku.bvid == bvid)
-        .distinct()
+        select(VideoDanmaku.cid).where(VideoDanmaku.bvid == bvid).distinct()
     ).all():
         stored_cids.add(_coerce_scalar_int(raw_cid))
     return stored_cids
@@ -310,14 +311,16 @@ def _merge_danmaku(
         persisted_entry.mode = entry.mode
         persisted_entry.font_size = entry.font_size
         persisted_entry.color = entry.color
-        persisted_entry.content = entry.content
+        persisted_entry.content = sanitize_postgres_text(entry.content)
         persisted_entry.sent_at = entry.sent_at
-        persisted_entry.source = entry.source
+        persisted_entry.source = sanitize_postgres_text(entry.source)
         persisted_entry.history_date = entry.history_date
-        persisted_entry.raw = entry.raw
+        persisted_entry.raw = sanitize_postgres_json(entry.raw)
         persisted_entry.crawled_at = crawled_at
         session.add(persisted_entry)
-        existing_by_key[_persisted_danmaku_dedupe_key(persisted_entry)] = persisted_entry
+        existing_by_key[_persisted_danmaku_dedupe_key(persisted_entry)] = (
+            persisted_entry
+        )
         existing_by_fallback_key[fallback_key] = persisted_entry
     session.flush()
     stored_count = (
@@ -345,7 +348,7 @@ def _incoming_danmaku_fallback_key(
         entry.mode,
         entry.font_size,
         entry.color,
-        entry.content,
+        sanitize_postgres_text(entry.content),
     )
 
 
@@ -385,10 +388,10 @@ def _replace_subtitles(
             VideoSubtitle(
                 bvid=bvid,
                 cid=track.cid,
-                lang=track.lang,
-                source=track.source,
-                content=track.content,
-                raw=track.raw,
+                lang=sanitize_postgres_text(track.lang),
+                source=sanitize_postgres_text(track.source),
+                content=sanitize_postgres_text(track.content),
+                raw=sanitize_postgres_json(track.raw),
                 crawled_at=crawled_at,
             )
         )

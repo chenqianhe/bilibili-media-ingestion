@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.crawler.bilibili_web import BilibiliWebClient
 from app.ingest_models import IngestJob, MediaAsset
+from app.services.postgres_sanitize import sanitize_postgres_text
 from app.services.storage_keys import build_asset_storage_key
 from app.uploader.base import ObjectStorageClient
 
@@ -84,12 +85,22 @@ def strip_url_fields(value: Any) -> Any:
     if isinstance(value, dict):
         sanitized: dict[str, Any] = {}
         for key, item in value.items():
-            if key.lower() in _IMAGE_URL_KEYS:
+            sanitized_key = sanitize_postgres_text(key) if isinstance(key, str) else key
+            normalized_key = (
+                sanitized_key.lower()
+                if isinstance(sanitized_key, str)
+                else str(sanitized_key).lower()
+            )
+            if normalized_key in _IMAGE_URL_KEYS:
                 continue
-            sanitized[key] = strip_url_fields(item)
+            sanitized[sanitized_key] = strip_url_fields(item)
         return sanitized
     if isinstance(value, list):
         return [strip_url_fields(item) for item in value]
+    if isinstance(value, tuple):
+        return [strip_url_fields(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_postgres_text(value)
     return value
 
 
