@@ -29,10 +29,7 @@ from app.services.image_asset_ingest import (
     store_remote_image_asset,
     strip_url_fields,
 )
-from app.services.postgres_sanitize import (
-    sanitize_postgres_json,
-    sanitize_postgres_text,
-)
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 from app.uploader.base import ObjectStorageClient
 
 
@@ -43,7 +40,7 @@ def _now_utc() -> datetime:
 def _merge_progress(job: IngestJob, *, payload: dict[str, object]) -> None:
     progress = dict(job.progress)
     progress.update(payload)
-    job.progress = sanitize_postgres_json(progress)
+    job.progress = strip_nul_bytes(progress)
 
 
 def _upsert_uploader(
@@ -58,11 +55,11 @@ def _upsert_uploader(
     if uploader is None:
         uploader = Uploader(mid=metadata.mid)
 
-    uploader.name = sanitize_postgres_text(metadata.name)
+    uploader.name = strip_nul_text(metadata.name)
     uploader.avatar_url = None
     uploader.avatar_s3_key = None
     if metadata.raw:
-        uploader.raw = sanitize_postgres_json(strip_url_fields(metadata.raw))
+        uploader.raw = strip_nul_bytes(strip_url_fields(metadata.raw))
     uploader.last_seen_at = _now_utc()
     session.add(uploader)
     return uploader
@@ -77,24 +74,22 @@ def _upsert_video(
 ) -> Video:
     video = session.get(Video, metadata.bvid)
     if video is None:
-        video = Video(bvid=metadata.bvid, title=sanitize_postgres_text(metadata.title))
+        video = Video(bvid=metadata.bvid, title=strip_nul_text(metadata.title) or "")
 
     video.aid = metadata.aid
-    video.title = sanitize_postgres_text(metadata.title)
-    video.description = sanitize_postgres_text(metadata.description)
+    video.title = strip_nul_text(metadata.title) or ""
+    video.description = strip_nul_text(metadata.description)
     video.duration_seconds = metadata.duration_seconds
     video.pubdate = metadata.pubdate
     video.owner_mid = uploader.mid if uploader else None
-    video.owner_name = sanitize_postgres_text(uploader.name) if uploader else None
+    video.owner_name = strip_nul_text(uploader.name) if uploader else None
     video.cover_url = None
     video.cover_s3_key = None
-    video.category = sanitize_postgres_text(metadata.category)
-    video.tags = list(
-        dict.fromkeys(sanitize_postgres_text(tag) for tag in metadata.tags)
-    )
-    video.stat = sanitize_postgres_json(metadata.stat.as_dict())
+    video.category = strip_nul_text(metadata.category)
+    video.tags = list(dict.fromkeys(strip_nul_text(tag) or "" for tag in metadata.tags))
+    video.stat = strip_nul_bytes(metadata.stat.as_dict())
     if metadata.raw:
-        video.raw = sanitize_postgres_json(strip_url_fields(metadata.raw))
+        video.raw = strip_nul_bytes(strip_url_fields(metadata.raw))
     video.last_crawled_at = crawled_at
     session.add(video)
     return video
@@ -190,9 +185,9 @@ def _sync_video_pages(
             )
         page.aid = metadata.aid
         page.page_no = page_metadata.page_no
-        page.part_title = sanitize_postgres_text(page_metadata.part_title)
+        page.part_title = strip_nul_text(page_metadata.part_title)
         page.duration_seconds = page_metadata.duration_seconds
-        page.raw = sanitize_postgres_json(page_metadata.raw)
+        page.raw = strip_nul_bytes(page_metadata.raw)
         session.add(page)
         seen_cids.add(page_metadata.cid)
 
@@ -296,7 +291,7 @@ def _fail_metadata_fetch(
     job.status = "failed"
     job.phase = "metadata fetch failed"
     job.error_code = error_code
-    job.error_message = sanitize_postgres_text(message)
+    job.error_message = strip_nul_text(message)
     job.finished_at = failed_at
     job.retry_count += 1
     _merge_progress(

@@ -1,26 +1,35 @@
 from app.crawler.bilibili_auxiliary import BilibiliDanmakuMetadata
 from app.services.auxiliary_ingest import _incoming_danmaku_fallback_key
 from app.services.image_asset_ingest import strip_url_fields
-from app.services.postgres_sanitize import (
-    sanitize_postgres_json,
-    sanitize_postgres_text,
-)
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 
 
-def test_sanitize_postgres_text_strips_nul_bytes() -> None:
-    assert sanitize_postgres_text("ab\x00cd") == "abcd"
-    assert sanitize_postgres_text(None) is None
+def test_strip_nul_text_removes_postgres_forbidden_nul_bytes() -> None:
+    assert strip_nul_text("Uploader\x00 42") == "Uploader 42"
+    assert strip_nul_text(None) is None
 
 
-def test_sanitize_postgres_json_strips_nested_nul_bytes() -> None:
+def test_strip_nul_bytes_recursively_sanitizes_json_payloads() -> None:
     payload = {
-        "plain": "ab\x00cd",
-        "nu\x00l_key": ["x\x00y", {"nested": "z\x00"}],
+        "bad\x00key": [
+            "x\x00",
+            {
+                "nested": "va\x00lue",
+                "items": ("a\x00", 1, None),
+            },
+        ],
+        "count": 1,
     }
 
-    assert sanitize_postgres_json(payload) == {
-        "plain": "abcd",
-        "nul_key": ["xy", {"nested": "z"}],
+    assert strip_nul_bytes(payload) == {
+        "badkey": [
+            "x",
+            {
+                "nested": "value",
+                "items": ("a", 1, None),
+            },
+        ],
+        "count": 1,
     }
 
 

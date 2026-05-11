@@ -15,10 +15,7 @@ from app.crawler.bilibili_auxiliary import (
 from app.crawler.bilibili_web import BilibiliWebClient, BilibiliWebError
 from app.ingest_models import IngestJob, MediaAsset, VideoComment, VideoCommentImage
 from app.services.image_asset_ingest import store_remote_image_asset, strip_url_fields
-from app.services.postgres_sanitize import (
-    sanitize_postgres_json,
-    sanitize_postgres_text,
-)
+from app.services.text_sanitization import strip_nul_bytes, strip_nul_text
 from app.uploader.base import ObjectStorageClient, ObjectStorageError
 
 _COMMENT_IMAGE_ASSET_TYPE = "comment_image"
@@ -186,14 +183,14 @@ def merge_comment_images(
                         )
                     except (BilibiliWebError, ObjectStorageError, ValueError) as exc:
                         storage_status = "failed"
-                        error_message = sanitize_postgres_text(str(exc))
+                        error_message = strip_nul_text(str(exc))
                         asset_id = None
                     else:
                         storage_status = "ready"
                         error_message = None
                         asset_id = asset.id
 
-                raw_payload = sanitize_postgres_json(strip_url_fields(dict(image.raw)))
+                raw_payload = strip_nul_bytes(strip_url_fields(dict(image.raw)))
                 if error_message is not None:
                     raw_payload["storage_error"] = error_message
                 if asset_id is not None:
@@ -211,7 +208,7 @@ def merge_comment_images(
                             height=image.height,
                             asset_id=asset_id,
                             storage_status=storage_status,
-                            error_message=sanitize_postgres_text(error_message),
+                            error_message=strip_nul_text(error_message),
                             raw=raw_payload,
                             crawled_at=crawled_at,
                         )
@@ -225,7 +222,7 @@ def merge_comment_images(
                 existing_image.height = image.height
                 existing_image.asset_id = asset_id
                 existing_image.storage_status = storage_status
-                existing_image.error_message = sanitize_postgres_text(error_message)
+                existing_image.error_message = strip_nul_text(error_message)
                 existing_image.raw = raw_payload
                 existing_image.crawled_at = crawled_at
                 session.add(existing_image)
