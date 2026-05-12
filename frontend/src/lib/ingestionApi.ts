@@ -312,6 +312,29 @@ export type BilibiliAccessStatus = {
   warnings: string[]
 }
 
+export type PackageVersion = {
+  name: string
+  version?: string | null
+}
+
+export type VersionControl = {
+  commit?: string | null
+  short_commit?: string | null
+  branch?: string | null
+  dirty?: boolean | null
+}
+
+export type SystemVersion = {
+  service: string
+  project_name: string
+  environment: string
+  app_version: string
+  python_version: string
+  build_time?: string | null
+  git: VersionControl
+  packages: PackageVersion[]
+}
+
 export const IngestionApi = {
   createIngestJob: (payload: IngestVideoRequest) =>
     request<IngestJobSummary>(OpenAPI, {
@@ -439,6 +462,11 @@ export const IngestionApi = {
     request<BilibiliAccessStatus>(OpenAPI, {
       method: "GET",
       url: "/api/v1/system/bilibili-access",
+    }),
+  readSystemVersion: () =>
+    request<SystemVersion>(OpenAPI, {
+      method: "GET",
+      url: "/api/v1/system/version",
     }),
   updateBilibiliAccessStatus: (payload: {
     netscape_cookies: string

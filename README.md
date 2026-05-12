@@ -474,6 +474,7 @@ POST /api/v1/ingest/videos
 - `GET /api/v1/system/bilibili-access`：查看 Bilibili 登录态配置。
 - `PUT /api/v1/system/bilibili-access`：保存 Bilibili Cookie。
 - `DELETE /api/v1/system/bilibili-access`：清除 Bilibili Cookie。
+- `GET /api/v1/system/version`：查看后端运行版本、Git 修订和关键依赖版本。
 
 ## 本地开发
 

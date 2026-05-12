@@ -2,10 +2,11 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.models import (
     BilibiliAccessStatusPublic,
     BilibiliAccessUpdate,
+    SystemVersionPublic,
     User,
 )
 from app.services.bilibili_access import (
@@ -14,10 +15,17 @@ from app.services.bilibili_access import (
     get_bilibili_access_status,
     set_database_bilibili_access,
 )
+from app.services.version_info import get_system_version
 
 router = APIRouter(prefix="/system", tags=["system"])
 
 AdminUserDep = Annotated[User, Depends(get_current_active_superuser)]
+
+
+@router.get("/version", response_model=SystemVersionPublic)
+def read_system_version(current_user: CurrentUser) -> SystemVersionPublic:
+    del current_user
+    return get_system_version()
 
 
 @router.get(
