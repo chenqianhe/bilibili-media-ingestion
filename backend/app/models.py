@@ -122,4 +122,27 @@ class BilibiliAccessStatusPublic(SQLModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class PackageVersionPublic(SQLModel):
+    name: str
+    version: str | None = None
+
+
+class VersionControlPublic(SQLModel):
+    commit: str | None = None
+    short_commit: str | None = None
+    branch: str | None = None
+    dirty: bool | None = None
+
+
+class SystemVersionPublic(SQLModel):
+    service: str
+    project_name: str
+    environment: str
+    app_version: str
+    python_version: str
+    build_time: str | None = None
+    git: VersionControlPublic
+    packages: list[PackageVersionPublic] = Field(default_factory=list)
+
+
 import app.ingest_models  # noqa: F401,E402

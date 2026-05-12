@@ -46,6 +46,28 @@ def test_read_bilibili_access_status_requires_superuser(
     assert response.status_code == 403
 
 
+def test_read_system_version_reports_runtime_versions(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    response = client.get(
+        f"{settings.API_V1_STR}/system/version",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["service"] == "backend"
+    assert payload["project_name"] == settings.PROJECT_NAME
+    assert payload["app_version"]
+    assert payload["python_version"]
+    assert isinstance(payload["git"], dict)
+    assert any(
+        package["name"] == "FastAPI" and package["version"]
+        for package in payload["packages"]
+    )
+
+
 def test_read_bilibili_access_status_reports_missing_configuration(
     client: TestClient,
     db: Session,

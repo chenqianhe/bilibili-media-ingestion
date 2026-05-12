@@ -7,6 +7,12 @@ x-backend-service: &backend-service
     context: .
     dockerfile: backend/Dockerfile
     target: backend-runtime
+    args:
+      APP_VERSION: "${APP_VERSION:-}"
+      APP_BUILD_COMMIT: "${APP_BUILD_COMMIT:-}"
+      APP_BUILD_SHORT_COMMIT: "${APP_BUILD_SHORT_COMMIT:-}"
+      APP_BUILD_BRANCH: "${APP_BUILD_BRANCH:-}"
+      APP_BUILD_TIME: "${APP_BUILD_TIME:-}"
   env_file:
     - path: .env
       required: true
@@ -82,6 +88,10 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+        - VITE_APP_VERSION=${VITE_APP_VERSION:-}
+        - VITE_GIT_COMMIT=${VITE_GIT_COMMIT:-}
+        - VITE_GIT_BRANCH=${VITE_GIT_BRANCH:-}
+        - VITE_BUILD_TIME=${VITE_BUILD_TIME:-}
         - NODE_ENV=${NODE_ENV:-production}
 
 volumes:

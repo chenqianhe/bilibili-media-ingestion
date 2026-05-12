@@ -100,6 +100,10 @@ services:
     build:
       args:
         - VITE_API_URL=http://localhost:8000
+        - VITE_APP_VERSION=${VITE_APP_VERSION:-}
+        - VITE_GIT_COMMIT=${VITE_GIT_COMMIT:-}
+        - VITE_GIT_BRANCH=${VITE_GIT_BRANCH:-}
+        - VITE_BUILD_TIME=${VITE_BUILD_TIME:-}
         - NODE_ENV=development
 
   mailcatcher:
